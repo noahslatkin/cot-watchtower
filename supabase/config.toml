@@ -1,1 +1,7 @@
 project_id = "lqhlmlnwixkummobkoiy"
+
+[functions.cot-etl]
+verify_jwt = false
+
+[functions.cot-refresh]
+verify_jwt = false
