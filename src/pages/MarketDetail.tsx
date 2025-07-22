@@ -101,10 +101,12 @@ export default function MarketDetail() {
     smallSpec: item.ss_net
   }));
   
-  // Generate mock index data (replace with real price data later)
-  const indexData = cotData.map((item, index) => ({
+  // Transform index data for IndexChart
+  const indexData = cotData.map(item => ({
     date: item.report_date,
-    value: 3000 + Math.sin(index * 0.1) * 500 + Math.random() * 200
+    commercialIndex: item.comm_index,
+    largeSpecIndex: item.ls_index,
+    smallSpecIndex: item.ss_index
   }));
   
   // Get latest data for metrics
@@ -196,7 +198,7 @@ export default function MarketDetail() {
         <TabsContent value="index" className="space-y-4">
           <IndexChart 
             data={indexData}
-            title="Price Index"
+            title="Commercial Index History"
             height={400}
           />
         </TabsContent>
