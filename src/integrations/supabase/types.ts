@@ -14,10 +14,215 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      contracts: {
+        Row: {
+          cftc_code: string | null
+          first_date: string | null
+          id: string
+          last_date: string | null
+          name: string
+          sector: string
+        }
+        Insert: {
+          cftc_code?: string | null
+          first_date?: string | null
+          id?: string
+          last_date?: string | null
+          name: string
+          sector?: string
+        }
+        Update: {
+          cftc_code?: string | null
+          first_date?: string | null
+          id?: string
+          last_date?: string | null
+          name?: string
+          sector?: string
+        }
+        Relationships: []
+      }
+      cot_metrics: {
+        Row: {
+          comm_index: number | null
+          comm_net: number | null
+          contract_id: string | null
+          id: number
+          ls_index: number | null
+          ls_net: number | null
+          report_date: string
+          ss_index: number | null
+          ss_net: number | null
+          wow_comm_delta: number | null
+          wow_ls_delta: number | null
+          wow_ss_delta: number | null
+        }
+        Insert: {
+          comm_index?: number | null
+          comm_net?: number | null
+          contract_id?: string | null
+          id?: number
+          ls_index?: number | null
+          ls_net?: number | null
+          report_date: string
+          ss_index?: number | null
+          ss_net?: number | null
+          wow_comm_delta?: number | null
+          wow_ls_delta?: number | null
+          wow_ss_delta?: number | null
+        }
+        Update: {
+          comm_index?: number | null
+          comm_net?: number | null
+          contract_id?: string | null
+          id?: number
+          ls_index?: number | null
+          ls_net?: number | null
+          report_date?: string
+          ss_index?: number | null
+          ss_net?: number | null
+          wow_comm_delta?: number | null
+          wow_ls_delta?: number | null
+          wow_ss_delta?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cot_metrics_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cot_weekly: {
+        Row: {
+          comm_long: number | null
+          comm_short: number | null
+          contract_id: string | null
+          id: number
+          ls_long: number | null
+          ls_short: number | null
+          open_interest: number | null
+          prod_class: string | null
+          report_date: string
+          ss_long: number | null
+          ss_short: number | null
+        }
+        Insert: {
+          comm_long?: number | null
+          comm_short?: number | null
+          contract_id?: string | null
+          id?: number
+          ls_long?: number | null
+          ls_short?: number | null
+          open_interest?: number | null
+          prod_class?: string | null
+          report_date: string
+          ss_long?: number | null
+          ss_short?: number | null
+        }
+        Update: {
+          comm_long?: number | null
+          comm_short?: number | null
+          contract_id?: string | null
+          id?: number
+          ls_long?: number | null
+          ls_short?: number | null
+          open_interest?: number | null
+          prod_class?: string | null
+          report_date?: string
+          ss_long?: number | null
+          ss_short?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cot_weekly_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      refresh_log: {
+        Row: {
+          error: string | null
+          id: number
+          rows_inserted: number | null
+          rows_updated: number | null
+          run_at: string | null
+        }
+        Insert: {
+          error?: string | null
+          id?: number
+          rows_inserted?: number | null
+          rows_updated?: number | null
+          run_at?: string | null
+        }
+        Update: {
+          error?: string | null
+          id?: number
+          rows_inserted?: number | null
+          rows_updated?: number | null
+          run_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      cot_latest: {
+        Row: {
+          comm_index: number | null
+          comm_net: number | null
+          contract_id: string | null
+          id: number | null
+          ls_index: number | null
+          ls_net: number | null
+          report_date: string | null
+          ss_index: number | null
+          ss_net: number | null
+          wow_comm_delta: number | null
+          wow_ls_delta: number | null
+          wow_ss_delta: number | null
+        }
+        Insert: {
+          comm_index?: number | null
+          comm_net?: number | null
+          contract_id?: string | null
+          id?: number | null
+          ls_index?: number | null
+          ls_net?: number | null
+          report_date?: string | null
+          ss_index?: number | null
+          ss_net?: number | null
+          wow_comm_delta?: number | null
+          wow_ls_delta?: number | null
+          wow_ss_delta?: number | null
+        }
+        Update: {
+          comm_index?: number | null
+          comm_net?: number | null
+          contract_id?: string | null
+          id?: number | null
+          ls_index?: number | null
+          ls_net?: number | null
+          report_date?: string | null
+          ss_index?: number | null
+          ss_net?: number | null
+          wow_comm_delta?: number | null
+          wow_ls_delta?: number | null
+          wow_ss_delta?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cot_metrics_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
