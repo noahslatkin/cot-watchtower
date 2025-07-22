@@ -26,6 +26,7 @@ type RawRow = {
   ss_short: number;
   contract_id?: string;
 };
+
 type MetricRow = {
   contract_id: string;
   report_date: string;
@@ -84,7 +85,7 @@ serve(async (req) => {
           const metrics = buildMetrics(raw);
           metricRows += await chunkUpsert(supabase, "cot_metrics", metrics, "contract_id,report_date");
 
-          console.log(`${y}: weekly ${weeklyRows} / metrics ${metricRows}`);
+          console.log(`${y}: weekly +${raw.length} / metrics +${metrics.length}`);
         } catch (e) {
           const msg = `${y}: ${(e as Error).message}`;
           console.error(msg);
@@ -108,6 +109,21 @@ serve(async (req) => {
 
     if (url.pathname.endsWith("/cot/latest")) {
       const { data, error } = await supabase.from("cot_latest").select("*, contracts(name,sector)");
+      if (error) throw error;
+      return json(data ?? []);
+    }
+
+    if (url.pathname.endsWith("/cot/range")) {
+      const contract_id = url.searchParams.get("contract_id")!;
+      const from        = url.searchParams.get("from")!;
+      const to          = url.searchParams.get("to")!;
+      const { data, error } = await supabase
+        .from("cot_metrics")
+        .select("*")
+        .eq("contract_id", contract_id)
+        .gte("report_date", from)
+        .lte("report_date", to)
+        .order("report_date", { ascending: true });
       if (error) throw error;
       return json(data ?? []);
     }
@@ -219,7 +235,6 @@ function buildMetrics(raw: RawRow[]): MetricRow[] {
       });
     }
   }
-
   return metrics;
 }
 

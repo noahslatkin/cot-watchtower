@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { EDGE_BASE, fetchJSON } from '@/lib/api';
 
 interface RefreshStatus {
   lastRefresh: Date | null;
@@ -13,8 +14,6 @@ interface RefreshContextType {
 }
 
 const RefreshContext = createContext<RefreshContextType | undefined>(undefined);
-
-const API_BASE = "https://lqhlmlnwixkummobkoiy.supabase.co/functions/v1/refresh_cot";
 
 export function RefreshProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<RefreshStatus>({
@@ -31,16 +30,13 @@ export function RefreshProvider({ children }: { children: ReactNode }) {
 
   const fetchRefreshStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE}/refresh/status`);
-      if (response.ok) {
-        const data = await response.json();
-        setStatus({
-          lastRefresh: data.run_at ? new Date(data.run_at) : null,
-          isRefreshing: false,
-          rowsUpdated: data.rows_inserted || 0,
-          error: data.error || null
-        });
-      }
+      const data = await fetchJSON(`${EDGE_BASE}/refresh/status`);
+      setStatus({
+        lastRefresh: data.run_at ? new Date(data.run_at) : null,
+        isRefreshing: false,
+        rowsUpdated: data.rows_inserted || 0,
+        error: data.error || null
+      });
     } catch (error) {
       console.error('Failed to fetch refresh status:', error);
       setStatus(prev => ({ ...prev, error: 'Failed to connect to API' }));
@@ -51,15 +47,14 @@ export function RefreshProvider({ children }: { children: ReactNode }) {
     setStatus(prev => ({ ...prev, isRefreshing: true, error: null }));
     
     try {
-      const response = await fetch(`${API_BASE}/refresh/run`, { method: 'GET' });
-      const data = await response.json();
+      const data = await fetchJSON(`${EDGE_BASE}/refresh/run?mode=full`, { method: 'POST' });
       
-      if (response.ok && data.status === 'success') {
+      if (data.status === 'completed' || data.status === 'partial') {
         setStatus({
           lastRefresh: new Date(),
           isRefreshing: false,
-          rowsUpdated: data.result?.total_weekly_rows + data.result?.total_metrics_rows || 0,
-          error: null
+          rowsUpdated: data.weekly_rows + data.metric_rows || 0,
+          error: data.errors?.length ? data.errors.join('; ') : null
         });
       } else {
         setStatus(prev => ({

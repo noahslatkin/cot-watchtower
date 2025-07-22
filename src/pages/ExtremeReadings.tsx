@@ -4,12 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { IndexChart } from "@/components/charts/IndexChart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { AlertTriangle, TrendingUp, TrendingDown, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE = "https://lqhlmlnwixkummobkoiy.supabase.co/functions/v1/refresh_cot";
+import { EDGE_BASE, fetchJSON } from '@/lib/api';
 
 interface ExtremeContract {
   contract_id: string;
@@ -45,11 +42,7 @@ export default function ExtremeReadings() {
     const fetchExtremeReadings = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`${API_BASE}/cot/latest`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch extreme readings');
-        }
-        const data = await response.json();
+        const data = await fetchJSON(`${EDGE_BASE}/cot/latest`);
         setExtremeContracts(data);
         setError(null);
       } catch (err) {
