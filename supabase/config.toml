@@ -1,6 +1,6 @@
 project_id = "lqhlmlnwixkummobkoiy"
 
-[functions.cot-etl]
+[functions.refresh_cot]
 verify_jwt = false
 
 [functions.cot-refresh]
