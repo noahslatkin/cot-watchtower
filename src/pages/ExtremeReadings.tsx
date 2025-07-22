@@ -9,7 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { AlertTriangle, TrendingUp, TrendingDown, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api';
+const API_BASE = "https://lqhlmlnwixkummobkoiy.supabase.co/functions/v1/refresh_cot";
 
 interface ExtremeContract {
   contract_id: string;
@@ -45,7 +45,7 @@ export default function ExtremeReadings() {
     const fetchExtremeReadings = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`${API_BASE}/extremes?min_threshold=${thresholdLow}&max_threshold=${thresholdHigh}`);
+        const response = await fetch(`${API_BASE}/cot/latest`);
         if (!response.ok) {
           throw new Error('Failed to fetch extreme readings');
         }
@@ -64,9 +64,10 @@ export default function ExtremeReadings() {
   }, [thresholdLow, thresholdHigh]);
 
   const filteredContracts = extremeContracts.filter(contract => {
+    const isExtreme = contract.comm_index <= thresholdLow || contract.comm_index >= thresholdHigh;
     const matchesSector = sectorFilter === "all" || contract.contracts.sector === sectorFilter;
     const matchesSearch = contract.contracts.name.toLowerCase().includes(searchFilter.toLowerCase());
-    return matchesSector && matchesSearch;
+    return isExtreme && matchesSector && matchesSearch;
   });
 
   const getStatusBadge = (index: number) => {

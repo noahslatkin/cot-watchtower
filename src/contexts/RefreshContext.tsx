@@ -14,7 +14,7 @@ interface RefreshContextType {
 
 const RefreshContext = createContext<RefreshContextType | undefined>(undefined);
 
-const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api';
+const API_BASE = "https://lqhlmlnwixkummobkoiy.supabase.co/functions/v1/refresh_cot";
 
 export function RefreshProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<RefreshStatus>({

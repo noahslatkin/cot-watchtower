@@ -1,5 +1,4 @@
 // supabase/functions/refresh_cot/index.ts
-// deno run --allow-env --allow-net
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "https://esm.sh/jszip@3.10.1";
@@ -12,8 +11,8 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOOKBACK = 156;
-const START_YEAR = 2008;
+const START_YEAR   = 2008;
+const LOOKBACK     = 156;
 
 type RawRow = {
   contract: string;
@@ -25,8 +24,8 @@ type RawRow = {
   ls_short: number;
   ss_long: number;
   ss_short: number;
+  contract_id?: string;
 };
-
 type MetricRow = {
   contract_id: string;
   report_date: string;
@@ -49,46 +48,43 @@ serve(async (req) => {
 
   try {
     if (url.pathname.endsWith("/refresh/run")) {
-      const mode = url.searchParams.get("mode") ?? "full";
+      const mode      = url.searchParams.get("mode") ?? "full"; // full | year
       const yearParam = url.searchParams.get("year");
-      const startYear = yearParam ? parseInt(yearParam) : START_YEAR;
-      const thisYear = new Date().getFullYear();
+      const start     = yearParam ? parseInt(yearParam) : START_YEAR;
+      const thisYear  = new Date().getFullYear();
 
       let weeklyRows = 0, metricRows = 0;
       const errors: string[] = [];
 
-      // cache contracts
-      const { data: existingContracts } = await supabase.from("contracts").select("id,name");
-      const contractIds = new Map<string,string>(existingContracts?.map((c:any)=>[c.name,c.id]) ?? []);
+      // Cache contracts
+      const { data: existing } = await supabase.from("contracts").select("id,name");
+      const idMap = new Map<string,string>(existing?.map((r:any)=>[r.name,r.id]) ?? []);
 
-      const years = mode === "full" ? range(startYear, thisYear) : [startYear];
+      const years = mode === "full" ? range(start, thisYear) : [start];
 
       for (const y of years) {
         try {
-          const raw = await fetchYearTXT(y); // returns RawRow[]
-          // upsert contracts
+          const raw = await fetchYearTXT(y); // RawRow[]
+          // Upsert contracts
           for (const name of new Set(raw.map(r => r.contract))) {
-            if (!contractIds.has(name)) {
+            if (!idMap.has(name)) {
               const { data: ex } = await supabase.from("contracts").select("id").eq("name", name).maybeSingle();
-              if (ex) contractIds.set(name, ex.id);
+              if (ex) idMap.set(name, ex.id);
               else {
-                const { data: ins } = await supabase.from("contracts").insert({ name }).select("id").single();
-                contractIds.set(name, ins.id);
+                const { data: ins, error } = await supabase.from("contracts").insert({ name }).select("id").single();
+                if (error) throw error;
+                idMap.set(name, ins.id);
               }
             }
           }
+          raw.forEach(r => r.contract_id = idMap.get(r.contract)!);
 
-          // attach contract_id
-          raw.forEach(r => (r as any).contract_id = contractIds.get(r.contract));
-
-          // upsert cot_weekly in chunks
           weeklyRows += await chunkUpsert(supabase, "cot_weekly", raw, "contract_id,report_date");
 
-          // build metrics & upsert
-          const metrics = buildMetrics(raw as any[]);
+          const metrics = buildMetrics(raw);
           metricRows += await chunkUpsert(supabase, "cot_metrics", metrics, "contract_id,report_date");
 
-          console.log(`${y} done: weekly=${weeklyRows} metrics=${metricRows}`);
+          console.log(`${y}: weekly ${weeklyRows} / metrics ${metricRows}`);
         } catch (e) {
           const msg = `${y}: ${(e as Error).message}`;
           console.error(msg);
@@ -99,7 +95,7 @@ serve(async (req) => {
       await supabase.from("refresh_log").insert({
         rows_inserted: weeklyRows + metricRows,
         rows_updated: 0,
-        error: errors.length ? errors.join("; ") : null,
+        error: errors.length ? errors.join("; ") : null
       });
 
       return json({ status: errors.length ? "partial" : "completed", weekly_rows: weeklyRows, metric_rows: metricRows, errors });
@@ -111,7 +107,8 @@ serve(async (req) => {
     }
 
     if (url.pathname.endsWith("/cot/latest")) {
-      const { data } = await supabase.from("cot_latest").select("*, contracts(name,sector)");
+      const { data, error } = await supabase.from("cot_latest").select("*, contracts(name,sector)");
+      if (error) throw error;
       return json(data ?? []);
     }
 
@@ -120,34 +117,33 @@ serve(async (req) => {
     console.error(err);
     return json({ error: err.message }, 500);
   }
-}, { onListen: () => console.log("Edge function up") });
-
-/* ---------- Helpers ---------- */
+});
 
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
 }
 
 function range(a: number, b: number) {
   return Array.from({ length: b - a + 1 }, (_, i) => a + i);
 }
 
-/** Download & parse TXT ZIP (fut_disagg_txt_YEAR.zip) */
+/** Download and parse TXT ZIP */
 async function fetchYearTXT(year: number): Promise<RawRow[]> {
   const url = `https://www.cftc.gov/files/dea/history/fut_disagg_txt_${year}.zip`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   const buf = new Uint8Array(await res.arrayBuffer());
-
   const zip = await JSZip.loadAsync(buf);
-  const first = Object.keys(zip.files).find(f => f.endsWith(".txt"));
-  if (!first) throw new Error("No txt in zip");
-
-  const txt = await zip.file(first)!.async("string");
+  const txtName = Object.keys(zip.files).find(f => f.endsWith(".txt"));
+  if (!txtName) throw new Error("No .txt file found in zip");
+  const txt = await zip.file(txtName)!.async("string");
   return parseTxt(txt);
 }
 
-/** Parse CFTC TXT format (comma-separated). Adjust indexes if CFTC changes headers. */
+/** Parse the CFTC CSV (txt) */
 function parseTxt(txt: string): RawRow[] {
   const lines = txt.trim().split(/\r?\n/);
   const header = lines.shift()!.split(",");
@@ -156,88 +152,82 @@ function parseTxt(txt: string): RawRow[] {
   const out: RawRow[] = [];
   for (const line of lines) {
     const cols = line.split(",");
-    const row: RawRow = {
+    const r: RawRow = {
       contract: cols[idx("Market_and_Exchange_Names")],
       report_date: cols[idx("Report_Date_as_YYYY-MM-DD")],
       prod_class: cols[idx("ProdClass")],
       comm_long: +cols[idx("Commercial_Positions_Long_All")],
-      comm_short: +cols[idx("Commercial_Positions_Short_All")],
-      ls_long: +cols[idx("Noncommercial_Positions_Long_All")],
-      ls_short: +cols[idx("Noncommercial_Positions_Short_All")],
-      ss_long: +cols[idx("Nonreportable_Positions_Long_All")],
-      ss_short: +cols[idx("Nonreportable_Positions_Short_All")],
+      comm_short:+cols[idx("Commercial_Positions_Short_All")],
+      ls_long:   +cols[idx("Noncommercial_Positions_Long_All")],
+      ls_short:  +cols[idx("Noncommercial_Positions_Short_All")],
+      ss_long:   +cols[idx("Nonreportable_Positions_Long_All")],
+      ss_short:  +cols[idx("Nonreportable_Positions_Short_All")]
     };
-    if (row.report_date) out.push(row);
+    if (r.report_date) out.push(r);
   }
   return out;
 }
 
-/** Chunked upsert helper */
-async function chunkUpsert(supabase: any, table: string, rows: any[], conflict: string): Promise<number> {
-  const chunkSize = 500;
-  let count = 0;
-  for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize);
+/** Upsert in chunks */
+async function chunkUpsert(supabase:any, table:string, rows:any[], conflict:string) {
+  const size = 500;
+  let inserted = 0;
+  for (let i=0;i<rows.length;i+=size) {
+    const chunk = rows.slice(i, i+size);
     const { error } = await supabase.from(table).upsert(chunk, { onConflict: conflict });
     if (error) throw error;
-    count += chunk.length;
+    inserted += chunk.length;
   }
-  return count;
+  return inserted;
 }
 
-/** Build metric rows (rolling 156-week indices + WoW deltas) */
-function buildMetrics(raw: (RawRow & { contract_id: string })[]): MetricRow[] {
-  // group by contract_id sorted by date
-  const groups = new Map<string, (RawRow & { contract_id: string })[]>();
+/** Build metrics with rolling 156-week percentile & WoW deltas */
+function buildMetrics(raw: RawRow[]): MetricRow[] {
+  const byId = new Map<string, RawRow[]>();
   raw.forEach(r => {
-    const arr = groups.get(r.contract_id) || [];
+    const arr = byId.get(r.contract_id!) || [];
     arr.push(r);
-    groups.set(r.contract_id, arr);
+    byId.set(r.contract_id!, arr);
   });
 
   const metrics: MetricRow[] = [];
-  for (const [cid, arr] of groups) {
-    arr.sort((a, b) => a.report_date.localeCompare(b.report_date));
 
-    const commNet: number[] = [];
-    const lsNet: number[] = [];
-    const ssNet: number[] = [];
+  for (const [cid, arr] of byId) {
+    arr.sort((a,b)=> a.report_date.localeCompare(b.report_date));
 
-    arr.forEach(r => {
-      commNet.push(r.comm_long - r.comm_short);
-      lsNet.push(r.ls_long - r.ls_short);
-      ssNet.push(r.ss_long - r.ss_short);
-    });
+    const comm = arr.map(r => r.comm_long - r.comm_short);
+    const ls   = arr.map(r => r.ls_long   - r.ls_short);
+    const ss   = arr.map(r => r.ss_long   - r.ss_short);
 
-    for (let i = 0; i < arr.length; i++) {
-      const commSlice = commNet.slice(Math.max(0, i - (LOOKBACK - 1)), i + 1);
-      const lsSlice   = lsNet.slice(Math.max(0, i - (LOOKBACK - 1)), i + 1);
-      const ssSlice   = ssNet.slice(Math.max(0, i - (LOOKBACK - 1)), i + 1);
+    for (let i=0;i<arr.length;i++) {
+      const commSlice = comm.slice(Math.max(0,i-(LOOKBACK-1)), i+1);
+      const lsSlice   = ls.slice(Math.max(0,i-(LOOKBACK-1)), i+1);
+      const ssSlice   = ss.slice(Math.max(0,i-(LOOKBACK-1)), i+1);
 
-      const row: MetricRow = {
+      metrics.push({
         contract_id: cid,
         report_date: arr[i].report_date,
-        comm_net: commNet[i],
-        ls_net: lsNet[i],
-        ss_net: ssNet[i],
+        comm_net: comm[i],
+        ls_net: ls[i],
+        ss_net: ss[i],
         comm_index: pctRank(commSlice),
         ls_index: pctRank(lsSlice),
         ss_index: pctRank(ssSlice),
-        wow_comm_delta: i === 0 ? null : commNet[i] - commNet[i - 1],
-        wow_ls_delta:   i === 0 ? null : lsNet[i]   - lsNet[i - 1],
-        wow_ss_delta:   i === 0 ? null : ssNet[i]   - ssNet[i - 1],
-      };
-      metrics.push(row);
+        wow_comm_delta: i===0 ? null : comm[i]-comm[i-1],
+        wow_ls_delta:   i===0 ? null : ls[i]-ls[i-1],
+        wow_ss_delta:   i===0 ? null : ss[i]-ss[i-1],
+      });
     }
   }
+
   return metrics;
 }
 
-/** Percentile rank of last value in an array (0–100) */
-function pctRank(values: number[]): number {
-  if (values.length === 0) return 0;
-  const last = values[values.length - 1];
-  const sorted = [...values].sort((a, b) => a - b);
-  const rank = sorted.findIndex(v => v >= last) + 1;
+/** Percentile rank of last value */
+function pctRank(values:number[]):number {
+  if (!values.length) return 0;
+  const last = values[values.length-1];
+  const sorted = [...values].sort((a,b)=>a-b);
+  const rank = sorted.findIndex(v=>v>=last)+1;
   return (rank / sorted.length) * 100;
 }
