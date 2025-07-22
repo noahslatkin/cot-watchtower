@@ -64,15 +64,7 @@ export default function Dashboard() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Markets"
-          value="142"
-          change="+3 this week"
-          changeType="positive"
-          icon={BarChart3}
-          description="Active COT contracts"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div onClick={() => navigate('/extreme-readings')} className="cursor-pointer">
           <MetricCard
             title="Extreme Readings"

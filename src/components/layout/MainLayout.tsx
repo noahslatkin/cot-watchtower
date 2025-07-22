@@ -2,13 +2,18 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { Button } from "@/components/ui/button";
-import { Calendar, Download } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { useRefresh } from "@/contexts/RefreshContext";
+import { Download } from "lucide-react";
+import { format } from "date-fns";
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  const { status } = useRefresh();
+  
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -25,10 +30,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             </div>
             
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Calendar className="h-4 w-4 mr-2" />
-                Date Range
-              </Button>
+              <DateRangePicker />
               <Button variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -40,6 +42,27 @@ export function MainLayout({ children }: MainLayoutProps) {
           <main className="flex-1 p-6 overflow-auto">
             {children}
           </main>
+
+          {/* Footer with refresh status */}
+          <footer className="h-10 border-t bg-card flex items-center justify-between px-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4">
+              <span>
+                Last refresh: {status.lastRefresh ? 
+                  format(status.lastRefresh, "MMM dd, yyyy 'at' h:mm a") : 
+                  'Never'
+                }
+              </span>
+              {status.rowsUpdated > 0 && (
+                <span>({status.rowsUpdated.toLocaleString()} records)</span>
+              )}
+              {status.error && (
+                <span className="text-destructive">Error: {status.error}</span>
+              )}
+            </div>
+            <div className="text-xs">
+              CFTC COT Analysis Platform
+            </div>
+          </footer>
         </div>
       </div>
     </SidebarProvider>

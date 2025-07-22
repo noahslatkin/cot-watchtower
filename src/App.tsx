@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { DateRangeProvider } from "@/contexts/DateRangeContext";
+import { RefreshProvider } from "@/contexts/RefreshContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import MarketDetail from "./pages/MarketDetail";
@@ -15,7 +17,9 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+    <RefreshProvider>
+      <DateRangeProvider>
+        <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
@@ -32,6 +36,8 @@ const App = () => (
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
+      </DateRangeProvider>
+    </RefreshProvider>
   </QueryClientProvider>
 );
 

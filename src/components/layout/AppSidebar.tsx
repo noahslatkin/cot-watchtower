@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useRefresh } from "@/contexts/RefreshContext";
+import { useToast } from "@/hooks/use-toast";
 import {
   BarChart3,
   TrendingUp,
@@ -90,6 +92,46 @@ const marketSectors = [
     markets: ["Live Cattle", "Feeder Cattle", "Lean Hogs"],
   },
 ];
+
+function RefreshButton() {
+  const { status, triggerRefresh } = useRefresh();
+  const { toast } = useToast();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
+  const handleRefresh = async () => {
+    try {
+      await triggerRefresh();
+      toast({
+        title: "Data Refreshed",
+        description: `Successfully updated ${status.rowsUpdated} records`,
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: status.error || "Failed to refresh data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton 
+        className="hover:bg-sidebar-accent/50" 
+        onClick={handleRefresh}
+        disabled={status.isRefreshing}
+      >
+        <RefreshCw className={`h-4 w-4 ${status.isRefreshing ? 'animate-spin' : ''}`} />
+        {!isCollapsed && (
+          <span className="text-sm">
+            {status.isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+          </span>
+        )}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -200,12 +242,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton className="hover:bg-sidebar-accent/50">
-                  <RefreshCw className="h-4 w-4" />
-                  {!isCollapsed && <span className="text-sm">Refresh Data</span>}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <RefreshButton />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

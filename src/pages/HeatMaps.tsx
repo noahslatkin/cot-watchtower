@@ -1,121 +1,68 @@
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-// Heat map data matching the CMR appendix format
-const heatMapData = [
-  { 
-    contract: "30-YEAR BONDS", 
-    category: "FIXED INCOME", 
-    cotSetUp: "", 
-    commWoWDelta: 21, 
-    lgSpecWoWDelta: -15, 
-    smSpecWoWDelta: -20,
-    commercials: 21, 
-    largeSpecs: 68, 
-    smallSpecs: 67,
-    prevCommercials: 55, 
-    prevLargeSpecs: 83, 
-    prevSmallSpecs: 87 
-  },
-  { 
-    contract: "10-YEAR NOTES", 
-    category: "FIXED INCOME", 
-    cotSetUp: "", 
-    commWoWDelta: 1, 
-    lgSpecWoWDelta: 0, 
-    smSpecWoWDelta: -3,
-    commercials: 56, 
-    largeSpecs: 40, 
-    smallSpecs: 70,
-    prevCommercials: 55, 
-    prevLargeSpecs: 40, 
-    prevSmallSpecs: 73 
-  },
-  { 
-    contract: "S&P 500", 
-    category: "EQUITIES", 
-    cotSetUp: "CLOSE SETUP - LONG", 
-    commWoWDelta: -1, 
-    lgSpecWoWDelta: 1, 
-    smSpecWoWDelta: -1,
-    commercials: 93, 
-    largeSpecs: 7, 
-    smallSpecs: 92,
-    prevCommercials: 94, 
-    prevLargeSpecs: 6, 
-    prevSmallSpecs: 93 
-  },
-  { 
-    contract: "DOW", 
-    category: "EQUITIES", 
-    cotSetUp: "CLOSE SETUP - SHORT", 
-    commWoWDelta: 6, 
-    lgSpecWoWDelta: -6, 
-    smSpecWoWDelta: -10,
-    commercials: 9, 
-    largeSpecs: 87, 
-    smallSpecs: 90,
-    prevCommercials: 3, 
-    prevLargeSpecs: 93, 
-    prevSmallSpecs: 100 
-  },
-  { 
-    contract: "GOLD", 
-    category: "METALS", 
-    cotSetUp: "CLOSE SETUP - SHORT", 
-    commWoWDelta: -4, 
-    lgSpecWoWDelta: 2, 
-    smSpecWoWDelta: -2,
-    commercials: 0, 
-    largeSpecs: 100, 
-    smallSpecs: 27,
-    prevCommercials: 4, 
-    prevLargeSpecs: 98, 
-    prevSmallSpecs: 29 
-  },
-  { 
-    contract: "SILVER", 
-    category: "METALS", 
-    cotSetUp: "CLOSE SETUP - SHORT", 
-    commWoWDelta: 0, 
-    lgSpecWoWDelta: 4, 
-    smSpecWoWDelta: 2,
-    commercials: 5, 
-    largeSpecs: 100, 
-    smallSpecs: 49,
-    prevCommercials: 5, 
-    prevLargeSpecs: 96, 
-    prevSmallSpecs: 47 
-  },
-  { 
-    contract: "CRUDE OIL", 
-    category: "ENERGIES", 
-    cotSetUp: "CLOSE SETUP - SHORT", 
-    commWoWDelta: -8, 
-    lgSpecWoWDelta: 10, 
-    smSpecWoWDelta: -16,
-    commercials: 20, 
-    largeSpecs: 79, 
-    smallSpecs: 63,
-    prevCommercials: 28, 
-    prevLargeSpecs: 69, 
-    prevSmallSpecs: 79 
-  },
-  { 
-    contract: "COFFEE", 
-    category: "SOFTS", 
-    cotSetUp: "SHORT SETUP", 
-    commWoWDelta: -35, 
-    lgSpecWoWDelta: 39, 
-    smSpecWoWDelta: 28,
-    commercials: 0, 
-    largeSpecs: 100, 
-    smallSpecs: 100,
-    prevCommercials: 35, 
-    prevLargeSpecs: 61, 
-    prevSmallSpecs: 72 
-  },
-];
+// Generate comprehensive mock data for all contracts
+const generateAllContractsData = () => {
+  const sectors = [
+    { title: "Equities", markets: ["E-mini S&P 500", "E-mini Nasdaq-100", "E-mini Dow"] },
+    { title: "Fixed Income", markets: ["2-Year Note", "5-Year Note", "10-Year Note", "30-Year Bond"] },
+    { title: "Currencies", markets: ["Euro FX", "Japanese Yen", "British Pound", "Canadian Dollar"] },
+    { title: "Energies", markets: ["Crude Oil WTI", "Brent Crude", "Natural Gas", "Heating Oil"] },
+    { title: "Metals", markets: ["Gold", "Silver", "Copper", "Platinum"] },
+    { title: "Softs", markets: ["Coffee C", "Sugar #11", "Cotton #2", "Cocoa"] },
+    { title: "Grains", markets: ["Corn", "Soybeans", "Wheat", "Soybean Oil"] },
+    { title: "Livestock", markets: ["Live Cattle", "Feeder Cattle", "Lean Hogs"] }
+  ];
+
+  const allContracts: any[] = [];
+  
+  sectors.forEach(sector => {
+    sector.markets.forEach(market => {
+      // Generate realistic indices and deltas
+      const commIndex = Math.round(Math.random() * 100);
+      const lsIndex = Math.round(100 - commIndex + (Math.random() - 0.5) * 20);
+      const ssIndex = Math.round(40 + (Math.random() - 0.5) * 40);
+      
+      const commDelta = Math.round((Math.random() - 0.5) * 30);
+      const lsDelta = Math.round((Math.random() - 0.5) * 30);
+      const ssDelta = Math.round((Math.random() - 0.5) * 15);
+      
+      let setupStatus = "neutral";
+      if (commIndex >= 95 || commIndex <= 5) setupStatus = "extreme";
+      else if (commIndex >= 85 || commIndex <= 15) setupStatus = "setup";
+      
+      allContracts.push({
+        contract: market,
+        category: sector.title.toUpperCase(),
+        slug: market.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and'),
+        commercials: commIndex,
+        largeSpecs: Math.max(0, Math.min(100, lsIndex)),
+        smallSpecs: Math.max(0, Math.min(100, ssIndex)),
+        commWoWDelta: commDelta,
+        lgSpecWoWDelta: lsDelta,
+        smSpecWoWDelta: ssDelta,
+        cotSetUp: setupStatus === "extreme" ? 
+          (commIndex >= 95 ? "SHORT SETUP" : "LONG SETUP") :
+          setupStatus === "setup" ? 
+          `CLOSE SETUP - ${commIndex >= 85 ? "SHORT" : "LONG"}` : "",
+        prevCommercials: Math.max(0, Math.min(100, commIndex - commDelta)),
+        prevLargeSpecs: Math.max(0, Math.min(100, lsIndex - lsDelta)),
+        prevSmallSpecs: Math.max(0, Math.min(100, ssIndex - ssDelta))
+      });
+    });
+  });
+  
+  return allContracts;
+};
+
+type SortKey = 'contract' | 'category' | 'commercials' | 'largeSpecs' | 'smallSpecs' | 'commWoWDelta' | 'lgSpecWoWDelta' | 'smSpecWoWDelta';
+type SortDirection = 'asc' | 'desc' | null;
 
 const getCellColor = (value: number) => {
   if (value >= 95) return "bg-red-600 text-white";
@@ -145,22 +92,103 @@ const getSetupColor = (setup: string) => {
 };
 
 export default function HeatMaps() {
+  const navigate = useNavigate();
+  const [contractsData] = useState(generateAllContractsData());
+  const [sectorFilter, setSectorFilter] = useState("all");
+  const [searchFilter, setSearchFilter] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>('commercials');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  const filteredAndSortedData = useMemo(() => {
+    let filtered = contractsData.filter(contract => {
+      const matchesSector = sectorFilter === "all" || contract.category === sectorFilter.toUpperCase();
+      const matchesSearch = contract.contract.toLowerCase().includes(searchFilter.toLowerCase());
+      return matchesSector && matchesSearch;
+    });
+
+    if (sortKey && sortDirection) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortKey];
+        const bValue = b[sortKey];
+        
+        if (typeof aValue === 'string') {
+          return sortDirection === 'asc' ? 
+            aValue.localeCompare(bValue) : 
+            bValue.localeCompare(aValue);
+        }
+        
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      });
+    }
+    
+    return filtered;
+  }, [contractsData, sectorFilter, searchFilter, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(prev => 
+        prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc'
+      );
+      if (sortDirection === 'desc') {
+        setSortKey('commercials');
+        setSortDirection('desc');
+      }
+    } else {
+      setSortKey(key);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+    if (sortDirection === 'asc') return <ArrowUp className="h-4 w-4 text-foreground" />;
+    if (sortDirection === 'desc') return <ArrowDown className="h-4 w-4 text-foreground" />;
+    return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const sectors = ["Equities", "Fixed Income", "Currencies", "Energies", "Metals", "Softs", "Grains", "Livestock"];
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">COT Heat Map & Rankings</h1>
+        <h1 className="text-3xl font-bold text-foreground">COT Heat Maps & Rankings</h1>
         <p className="text-muted-foreground mt-2">
-          Week-over-week positioning analysis across all markets
+          Week-over-week positioning changes and current index levels across all markets
         </p>
       </div>
 
-      {/* CMR-Style Heat Map Table */}
+      {/* Filters and Search */}
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex-1 min-w-[300px]">
+          <Input
+            placeholder="Search contracts..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+          />
+        </div>
+        <Select value={sectorFilter} onValueChange={setSectorFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by sector" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sectors</SelectItem>
+            {sectors.map(sector => (
+              <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Badge variant="secondary">
+          {filteredAndSortedData.length} contracts
+        </Badge>
+      </div>
+
+      {/* Sortable Heat Map Table */}
       <Card>
         <CardHeader>
           <CardTitle>Week over Week Heat Map</CardTitle>
           <div className="text-sm text-muted-foreground">
-            Data as of 4/7/2024 vs 3/31/2024
+            Sortable table with all contracts - click column headers to sort
           </div>
         </CardHeader>
         <CardContent>
@@ -168,18 +196,64 @@ export default function HeatMaps() {
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-2 font-semibold">Contract</th>
-                  <th className="text-left p-2 font-semibold">Category</th>
+                  <th className="text-left p-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleSort('contract')}
+                      className="font-semibold text-xs"
+                    >
+                      Contract {getSortIcon('contract')}
+                    </Button>
+                  </th>
+                  <th className="text-left p-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleSort('category')}
+                      className="font-semibold text-xs"
+                    >
+                      Category {getSortIcon('category')}
+                    </Button>
+                  </th>
                   <th className="text-left p-2 font-semibold">CoT Set Up</th>
-                  <th className="text-center p-2 font-semibold">Comm<br/>WoW<br/>Delta</th>
-                  <th className="text-center p-2 font-semibold">LG Spec<br/>WoW<br/>Delta</th>
-                  <th className="text-center p-2 font-semibold">SM Spec<br/>WoW<br/>Delta</th>
-                  <th className="text-center p-2 font-semibold">4/7/2024</th>
+                  <th className="text-center p-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleSort('commWoWDelta')}
+                      className="font-semibold text-xs"
+                    >
+                      Comm WoW Δ {getSortIcon('commWoWDelta')}
+                    </Button>
+                  </th>
+                  <th className="text-center p-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleSort('lgSpecWoWDelta')}
+                      className="font-semibold text-xs"
+                    >
+                      LG Spec WoW Δ {getSortIcon('lgSpecWoWDelta')}
+                    </Button>
+                  </th>
+                  <th className="text-center p-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleSort('smSpecWoWDelta')}
+                      className="font-semibold text-xs"
+                    >
+                      SM Spec WoW Δ {getSortIcon('smSpecWoWDelta')}
+                    </Button>
+                  </th>
+                  <th className="text-center p-2 font-semibold">Current Week</th>
                   <th className="text-center p-2 font-semibold"></th>
                   <th className="text-center p-2 font-semibold"></th>
-                  <th className="text-center p-2 font-semibold">3/31/2024</th>
+                  <th className="text-center p-2 font-semibold">Previous Week</th>
                   <th className="text-center p-2 font-semibold"></th>
                   <th className="text-center p-2 font-semibold"></th>
+                  <th className="text-center p-2 font-semibold">Action</th>
                 </tr>
                 <tr className="border-b text-xs">
                   <th className="p-1"></th>
@@ -188,16 +262,44 @@ export default function HeatMaps() {
                   <th className="p-1"></th>
                   <th className="p-1"></th>
                   <th className="p-1"></th>
+                  <th className="text-center p-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleSort('commercials')}
+                      className="font-medium text-xs"
+                    >
+                      Commercials {getSortIcon('commercials')}
+                    </Button>
+                  </th>
+                  <th className="text-center p-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleSort('largeSpecs')}
+                      className="font-medium text-xs"
+                    >
+                      Large Specs {getSortIcon('largeSpecs')}
+                    </Button>
+                  </th>
+                  <th className="text-center p-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleSort('smallSpecs')}
+                      className="font-medium text-xs"
+                    >
+                      Small Specs {getSortIcon('smallSpecs')}
+                    </Button>
+                  </th>
                   <th className="text-center p-1 font-medium">Commercials</th>
                   <th className="text-center p-1 font-medium">Large Specs</th>
                   <th className="text-center p-1 font-medium">Small Specs</th>
-                  <th className="text-center p-1 font-medium">Commercials</th>
-                  <th className="text-center p-1 font-medium">Large Specs</th>
-                  <th className="text-center p-1 font-medium">Small Specs</th>
+                  <th className="text-center p-1"></th>
                 </tr>
               </thead>
               <tbody>
-                {heatMapData.map((row, index) => (
+                {filteredAndSortedData.map((row, index) => (
                   <tr key={index} className="border-b hover:bg-muted/50">
                     <td className="p-2 font-medium">{row.contract}</td>
                     <td className="p-2 text-muted-foreground">{row.category}</td>
@@ -237,6 +339,15 @@ export default function HeatMaps() {
                     </td>
                     <td className={`p-2 text-center ${getCellColor(row.prevSmallSpecs)}`}>
                       {row.prevSmallSpecs}
+                    </td>
+                    <td className="p-2 text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => navigate(`/market/${row.slug}`)}
+                      >
+                        View
+                      </Button>
                     </td>
                   </tr>
                 ))}
