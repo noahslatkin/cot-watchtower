@@ -57,7 +57,7 @@ export function RefreshProvider({ children }: { children: ReactNode }) {
         setStatus({
           lastRefresh: new Date(),
           isRefreshing: false,
-          rowsUpdated: data.inserted || 0,
+          rowsUpdated: data.result?.total_weekly_rows + data.result?.total_metrics_rows || 0,
           error: null
         });
       } else {

@@ -14,7 +14,7 @@ CFTC_BASE_URL = "https://www.cftc.gov/files/dea/history"
 
 # Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
+supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
 
 def rolling_percentile(series: pd.Series, window: int = 156) -> float:

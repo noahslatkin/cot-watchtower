@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,59 +7,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-// Generate comprehensive mock data for all contracts
-const generateAllContractsData = () => {
-  const sectors = [
-    { title: "Equities", markets: ["E-mini S&P 500", "E-mini Nasdaq-100", "E-mini Dow"] },
-    { title: "Fixed Income", markets: ["2-Year Note", "5-Year Note", "10-Year Note", "30-Year Bond"] },
-    { title: "Currencies", markets: ["Euro FX", "Japanese Yen", "British Pound", "Canadian Dollar"] },
-    { title: "Energies", markets: ["Crude Oil WTI", "Brent Crude", "Natural Gas", "Heating Oil"] },
-    { title: "Metals", markets: ["Gold", "Silver", "Copper", "Platinum"] },
-    { title: "Softs", markets: ["Coffee C", "Sugar #11", "Cotton #2", "Cocoa"] },
-    { title: "Grains", markets: ["Corn", "Soybeans", "Wheat", "Soybean Oil"] },
-    { title: "Livestock", markets: ["Live Cattle", "Feeder Cattle", "Lean Hogs"] }
-  ];
+const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api';
 
-  const allContracts: any[] = [];
-  
-  sectors.forEach(sector => {
-    sector.markets.forEach(market => {
-      // Generate realistic indices and deltas
-      const commIndex = Math.round(Math.random() * 100);
-      const lsIndex = Math.round(100 - commIndex + (Math.random() - 0.5) * 20);
-      const ssIndex = Math.round(40 + (Math.random() - 0.5) * 40);
-      
-      const commDelta = Math.round((Math.random() - 0.5) * 30);
-      const lsDelta = Math.round((Math.random() - 0.5) * 30);
-      const ssDelta = Math.round((Math.random() - 0.5) * 15);
-      
-      let setupStatus = "neutral";
-      if (commIndex >= 95 || commIndex <= 5) setupStatus = "extreme";
-      else if (commIndex >= 85 || commIndex <= 15) setupStatus = "setup";
-      
-      allContracts.push({
-        contract: market,
-        category: sector.title.toUpperCase(),
-        slug: market.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and'),
-        commercials: commIndex,
-        largeSpecs: Math.max(0, Math.min(100, lsIndex)),
-        smallSpecs: Math.max(0, Math.min(100, ssIndex)),
-        commWoWDelta: commDelta,
-        lgSpecWoWDelta: lsDelta,
-        smSpecWoWDelta: ssDelta,
-        cotSetUp: setupStatus === "extreme" ? 
-          (commIndex >= 95 ? "SHORT SETUP" : "LONG SETUP") :
-          setupStatus === "setup" ? 
-          `CLOSE SETUP - ${commIndex >= 85 ? "SHORT" : "LONG"}` : "",
-        prevCommercials: Math.max(0, Math.min(100, commIndex - commDelta)),
-        prevLargeSpecs: Math.max(0, Math.min(100, lsIndex - lsDelta)),
-        prevSmallSpecs: Math.max(0, Math.min(100, ssIndex - ssDelta))
-      });
-    });
-  });
-  
-  return allContracts;
-};
+interface COTData {
+  contract_id: string;
+  report_date: string;
+  comm_net: number;
+  ls_net: number;
+  ss_net: number;
+  comm_index: number;
+  ls_index: number;
+  ss_index: number;
+  wow_comm_delta: number;
+  wow_ls_delta: number;
+  wow_ss_delta: number;
+  contracts: {
+    name: string;
+    sector: string;
+  };
+}
+
+interface ProcessedContract {
+  contract: string;
+  category: string;
+  slug: string;
+  commercials: number;
+  largeSpecs: number;
+  smallSpecs: number;
+  commWoWDelta: number;
+  lgSpecWoWDelta: number;
+  smSpecWoWDelta: number;
+  cotSetUp: string;
+}
 
 type SortKey = 'contract' | 'category' | 'commercials' | 'largeSpecs' | 'smallSpecs' | 'commWoWDelta' | 'lgSpecWoWDelta' | 'smSpecWoWDelta';
 type SortDirection = 'asc' | 'desc' | null;
@@ -91,13 +70,66 @@ const getSetupColor = (setup: string) => {
   return "bg-gray-100 text-gray-800 border-gray-300";
 };
 
+const getContractSlug = (name: string) => {
+  return name.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and');
+};
+
 export default function HeatMaps() {
   const navigate = useNavigate();
-  const [contractsData] = useState(generateAllContractsData());
+  const [contractsData, setContractsData] = useState<ProcessedContract[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sectorFilter, setSectorFilter] = useState("all");
   const [searchFilter, setSearchFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>('commercials');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Fetch latest COT data
+  useEffect(() => {
+    const fetchCOTData = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`${API_BASE}/cot/latest`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch COT data');
+        }
+        
+        const data: COTData[] = await response.json();
+        
+        // Process the data to match the expected format
+        const processedData: ProcessedContract[] = data.map(item => {
+          let setupStatus = "";
+          if (item.comm_index >= 95) setupStatus = "SHORT SETUP";
+          else if (item.comm_index <= 5) setupStatus = "LONG SETUP";
+          else if (item.comm_index >= 85) setupStatus = "CLOSE SETUP - SHORT";
+          else if (item.comm_index <= 15) setupStatus = "CLOSE SETUP - LONG";
+          
+          return {
+            contract: item.contracts.name,
+            category: item.contracts.sector.toUpperCase(),
+            slug: getContractSlug(item.contracts.name),
+            commercials: Math.round(item.comm_index),
+            largeSpecs: Math.round(item.ls_index),
+            smallSpecs: Math.round(item.ss_index),
+            commWoWDelta: item.wow_comm_delta,
+            lgSpecWoWDelta: item.wow_ls_delta,
+            smSpecWoWDelta: item.wow_ss_delta,
+            cotSetUp: setupStatus
+          };
+        });
+        
+        setContractsData(processedData);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error fetching COT data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCOTData();
+  }, []);
 
   const filteredAndSortedData = useMemo(() => {
     let filtered = contractsData.filter(contract => {
@@ -111,13 +143,17 @@ export default function HeatMaps() {
         const aValue = a[sortKey];
         const bValue = b[sortKey];
         
-        if (typeof aValue === 'string') {
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
           return sortDirection === 'asc' ? 
             aValue.localeCompare(bValue) : 
             bValue.localeCompare(aValue);
         }
         
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        
+        return 0;
       });
     }
     
@@ -146,7 +182,16 @@ export default function HeatMaps() {
     return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
   };
 
-  const sectors = ["Equities", "Fixed Income", "Currencies", "Energies", "Metals", "Softs", "Grains", "Livestock"];
+  // Get unique sectors for filter
+  const sectors = [...new Set(contractsData.map(c => c.category))].sort();
+
+  if (loading) {
+    return <div className="p-6">Loading heat map data...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6">Error: {error}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -188,7 +233,7 @@ export default function HeatMaps() {
         <CardHeader>
           <CardTitle>Week over Week Heat Map</CardTitle>
           <div className="text-sm text-muted-foreground">
-            Data as of July 15, 2025 vs July 8, 2025
+            Latest available data from CFTC reports
           </div>
         </CardHeader>
         <CardContent>
@@ -247,10 +292,7 @@ export default function HeatMaps() {
                       SM Spec WoW Δ {getSortIcon('smSpecWoWDelta')}
                     </Button>
                   </th>
-                  <th className="text-center p-2 font-semibold">Current Week</th>
-                  <th className="text-center p-2 font-semibold"></th>
-                  <th className="text-center p-2 font-semibold"></th>
-                  <th className="text-center p-2 font-semibold">Previous Week</th>
+                  <th className="text-center p-2 font-semibold">Current Indices</th>
                   <th className="text-center p-2 font-semibold"></th>
                   <th className="text-center p-2 font-semibold"></th>
                   <th className="text-center p-2 font-semibold">Action</th>
@@ -292,15 +334,12 @@ export default function HeatMaps() {
                       Small Specs {getSortIcon('smallSpecs')}
                     </Button>
                   </th>
-                  <th className="text-center p-1 font-medium">Commercials</th>
-                  <th className="text-center p-1 font-medium">Large Specs</th>
-                  <th className="text-center p-1 font-medium">Small Specs</th>
                   <th className="text-center p-1"></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAndSortedData.map((row, index) => (
-                  <tr key={index} className="border-b hover:bg-muted/50">
+                  <tr key={`${row.contract}-${index}`} className="border-b hover:bg-muted/50">
                     <td className="p-2 font-medium">{row.contract}</td>
                     <td className="p-2 text-muted-foreground">{row.category}</td>
                     <td className="p-2">
@@ -330,15 +369,6 @@ export default function HeatMaps() {
                     </td>
                     <td className={`p-2 text-center font-bold ${getCellColor(row.smallSpecs)}`}>
                       {row.smallSpecs}
-                    </td>
-                    <td className={`p-2 text-center ${getCellColor(row.prevCommercials)}`}>
-                      {row.prevCommercials}
-                    </td>
-                    <td className={`p-2 text-center ${getCellColor(row.prevLargeSpecs)}`}>
-                      {row.prevLargeSpecs}
-                    </td>
-                    <td className={`p-2 text-center ${getCellColor(row.prevSmallSpecs)}`}>
-                      {row.prevSmallSpecs}
                     </td>
                     <td className="p-2 text-center">
                       <Button 
@@ -387,9 +417,9 @@ export default function HeatMaps() {
           </div>
           <div className="mt-4 text-sm text-muted-foreground">
             <p><strong>Setup Definitions:</strong></p>
-            <p>• <strong>Close Setup:</strong> Within 5 points of extreme threshold</p>
-            <p>• <strong>Current Trade:</strong> Active position based on index reading</p>
+            <p>• <strong>Close Setup:</strong> Within 15 points of extreme threshold</p>
             <p>• <strong>Short/Long Setup:</strong> Directional bias based on commercial positioning</p>
+            <p>• <strong>Extreme readings:</strong> Above 95 or below 5 indicate high probability reversal zones</p>
           </div>
         </CardContent>
       </Card>

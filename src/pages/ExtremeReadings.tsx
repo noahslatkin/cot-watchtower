@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,99 +9,64 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { AlertTriangle, TrendingUp, TrendingDown, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-// Market sectors data
-const marketSectors = [
-  { title: "Equities", markets: ["E-mini S&P 500", "E-mini Nasdaq-100", "E-mini Dow"] },
-  { title: "Fixed Income", markets: ["2-Year Note", "5-Year Note", "10-Year Note", "30-Year Bond"] },
-  { title: "Currencies", markets: ["Euro FX", "Japanese Yen", "British Pound", "Canadian Dollar"] },
-  { title: "Energies", markets: ["Crude Oil WTI", "Brent Crude", "Natural Gas", "Heating Oil"] },
-  { title: "Metals", markets: ["Gold", "Silver", "Copper", "Platinum"] },
-  { title: "Softs", markets: ["Coffee C", "Sugar #11", "Cotton #2", "Cocoa"] },
-  { title: "Grains", markets: ["Corn", "Soybeans", "Wheat", "Soybean Oil"] },
-  { title: "Livestock", markets: ["Live Cattle", "Feeder Cattle", "Lean Hogs"] }
-];
+const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api';
 
-// Generate extreme readings data
-const generateExtremeReadings = () => {
-  const extremeContracts = [];
-  
-  marketSectors.forEach(sector => {
-    sector.markets.forEach(market => {
-      const slug = market.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and');
-      
-      // Generate random extreme readings (some contracts will be extreme, others won't)
-      const commercialIndex = Math.random() > 0.7 ? 
-        (Math.random() > 0.5 ? Math.random() * 5 + 2 : Math.random() * 5 + 93) : 
-        Math.random() * 80 + 10;
-      
-      const largeSpecIndex = 100 - commercialIndex + (Math.random() - 0.5) * 10;
-      const smallSpecIndex = 50 + (Math.random() - 0.5) * 30;
-      
-      // Only include if it's actually extreme
-      if (commercialIndex <= 5 || commercialIndex >= 95) {
-        // Generate price data (mock daily prices) - updated to July 2025
-        const priceData = [];
-        let price = Math.random() * 1000 + 100;
-        for (let i = 0; i < 365; i++) { // Full year of daily prices
-          price += (Math.random() - 0.5) * price * 0.02;
-          priceData.push({
-            date: new Date(2024, 6, 15 + i).toISOString().split('T')[0], // July 15, 2024 to July 2025
-            price: Math.round(price * 100) / 100
-          });
-        }
-        
-        // Generate index history - updated to July 2025
-        const indexHistory = [];
-        let index = commercialIndex;
-        for (let i = 0; i < 52; i++) { // 52 weeks of data
-          index += (Math.random() - 0.5) * 8;
-          index = Math.max(0, Math.min(100, index));
-          indexHistory.push({
-            date: new Date(2024, 6, 15 + i * 7).toISOString().split('T')[0], // Weekly data from July 15, 2024
-            commercialIndex: Math.round(index),
-            largeSpecIndex: Math.round(100 - index + (Math.random() - 0.5) * 10),
-            smallSpecIndex: Math.round(50 + (Math.random() - 0.5) * 20)
-          });
-        }
-        
-        extremeContracts.push({
-          name: market,
-          sector: sector.title,
-          slug,
-          commercialIndex: Math.round(commercialIndex),
-          largeSpecIndex: Math.round(largeSpecIndex),
-          smallSpecIndex: Math.round(smallSpecIndex),
-          weekChange: (Math.random() - 0.5) * 20,
-          signalType: commercialIndex >= 95 ? 'Short Setup' : 'Long Setup',
-          riskLevel: commercialIndex >= 95 || commercialIndex <= 5 ? 'High' : 'Medium',
-          priceData,
-          indexHistory
-        });
-      }
-    });
-  });
-  
-  return extremeContracts.sort((a, b) => {
-    const aExtreme = Math.min(a.commercialIndex, 100 - a.commercialIndex);
-    const bExtreme = Math.min(b.commercialIndex, 100 - b.commercialIndex);
-    return aExtreme - bExtreme;
-  });
-};
+interface ExtremeContract {
+  contract_id: string;
+  report_date: string;
+  comm_net: number;
+  ls_net: number;
+  ss_net: number;
+  comm_index: number;
+  ls_index: number;
+  ss_index: number;
+  wow_comm_delta: number;
+  wow_ls_delta: number;
+  wow_ss_delta: number;
+  contracts: {
+    name: string;
+    sector: string;
+  };
+}
 
 export default function ExtremeReadings() {
   const navigate = useNavigate();
-  const [extremeContracts] = useState(generateExtremeReadings());
-  const [selectedContract, setSelectedContract] = useState<any>(null);
+  const [extremeContracts, setExtremeContracts] = useState<ExtremeContract[]>([]);
+  const [selectedContract, setSelectedContract] = useState<ExtremeContract | null>(null);
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [searchFilter, setSearchFilter] = useState("");
   const [thresholdLow, setThresholdLow] = useState(5);
   const [thresholdHigh, setThresholdHigh] = useState(95);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch extreme readings
+  useEffect(() => {
+    const fetchExtremeReadings = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`${API_BASE}/extremes?min_threshold=${thresholdLow}&max_threshold=${thresholdHigh}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch extreme readings');
+        }
+        const data = await response.json();
+        setExtremeContracts(data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error fetching extreme readings:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExtremeReadings();
+  }, [thresholdLow, thresholdHigh]);
 
   const filteredContracts = extremeContracts.filter(contract => {
-    const matchesSector = sectorFilter === "all" || contract.sector === sectorFilter;
-    const matchesSearch = contract.name.toLowerCase().includes(searchFilter.toLowerCase());
-    const isExtreme = contract.commercialIndex <= thresholdLow || contract.commercialIndex >= thresholdHigh;
-    return matchesSector && matchesSearch && isExtreme;
+    const matchesSector = sectorFilter === "all" || contract.contracts.sector === sectorFilter;
+    const matchesSearch = contract.contracts.name.toLowerCase().includes(searchFilter.toLowerCase());
+    return matchesSector && matchesSearch;
   });
 
   const getStatusBadge = (index: number) => {
@@ -109,6 +74,21 @@ export default function ExtremeReadings() {
     if (index <= thresholdLow) return { variant: "destructive" as const, text: "Extreme Short", icon: TrendingDown };
     return { variant: "secondary" as const, text: "Neutral", icon: AlertTriangle };
   };
+
+  const getContractSlug = (name: string) => {
+    return name.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and');
+  };
+
+  // Get unique sectors for filter
+  const sectors = [...new Set(extremeContracts.map(c => c.contracts.sector))].sort();
+
+  if (loading) {
+    return <div className="p-6">Loading extreme readings...</div>;
+  }
+
+  if (error) {
+    return <div className="p-6">Error: {error}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -135,8 +115,8 @@ export default function ExtremeReadings() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Sectors</SelectItem>
-            {marketSectors.map(sector => (
-              <SelectItem key={sector.title} value={sector.title}>{sector.title}</SelectItem>
+            {sectors.map(sector => (
+              <SelectItem key={sector} value={sector}>{sector}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -178,40 +158,33 @@ export default function ExtremeReadings() {
               </div>
             ) : (
               filteredContracts.map((contract, index) => {
-                const status = getStatusBadge(contract.commercialIndex);
+                const status = getStatusBadge(contract.comm_index);
                 const StatusIcon = status.icon;
                 
                 return (
                   <div 
-                    key={index} 
+                    key={`${contract.contract_id}-${index}`}
                     className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer border"
                     onClick={() => setSelectedContract(contract)}
                   >
                     <div className="flex items-center gap-4">
                       <div>
-                        <div className="font-medium text-foreground">{contract.name}</div>
-                        <div className="text-sm text-muted-foreground">{contract.sector}</div>
+                        <div className="font-medium text-foreground">{contract.contracts.name}</div>
+                        <div className="text-sm text-muted-foreground">{contract.contracts.sector}</div>
                       </div>
                       
-                      {/* Mini sparkline */}
-                      <div className="w-20 h-8">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={contract.indexHistory.slice(-5)}>
-                            <Line 
-                              type="monotone" 
-                              dataKey="commercialIndex" 
-                              stroke="hsl(var(--chart-commercial))" 
-                              strokeWidth={2}
-                              dot={false}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
+                      {/* Simple indicator instead of sparkline for now */}
+                      <div className="w-20 h-8 flex items-center justify-center">
+                        <div className={`w-4 h-4 rounded-full ${
+                          contract.wow_comm_delta > 0 ? 'bg-green-500' : 
+                          contract.wow_comm_delta < 0 ? 'bg-red-500' : 'bg-gray-400'
+                        }`} />
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <div className="font-bold text-lg">{contract.commercialIndex}</div>
+                        <div className="font-bold text-lg">{contract.comm_index.toFixed(1)}</div>
                         <div className="text-xs text-muted-foreground">Commercial Index</div>
                       </div>
                       
@@ -225,7 +198,7 @@ export default function ExtremeReadings() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/market/${contract.slug}`);
+                          navigate(`/market/${getContractSlug(contract.contracts.name)}`);
                         }}
                       >
                         <ExternalLink className="h-4 w-4" />
@@ -242,94 +215,81 @@ export default function ExtremeReadings() {
       {/* Detailed View Modal */}
       {selectedContract && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-6xl max-h-[90vh] overflow-auto">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-auto">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>{selectedContract.name} - Detailed Analysis</CardTitle>
+                <CardTitle>{selectedContract.contracts.name} - Current Analysis</CardTitle>
                 <Button variant="ghost" onClick={() => setSelectedContract(null)}>
                   ×
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Price Chart */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Daily Price Chart (30 days)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={selectedContract.priceData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" opacity={0.3} />
-                        <XAxis 
-                          dataKey="date" 
-                          stroke="hsl(var(--muted-foreground))"
-                          fontSize={11}
-                          tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                        />
-                        <YAxis 
-                          stroke="hsl(var(--muted-foreground))" 
-                          fontSize={11}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--popover))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "var(--radius)",
-                            color: "hsl(var(--popover-foreground))",
-                          }}
-                          labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                          formatter={(value: any) => [`$${Number(value).toFixed(2)}`, "Price"]}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="price" 
-                          stroke="hsl(var(--primary))" 
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* COT Index Chart */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Commercial Index History</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <IndexChart 
-                      data={selectedContract.indexHistory} 
-                      title="" 
-                      height={250}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {/* Summary */}
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                <h4 className="font-semibold mb-2">Analysis Summary</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Signal Type:</span>
-                    <div className="font-medium">{selectedContract.signalType}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Risk Level:</span>
-                    <div className="font-medium">{selectedContract.riskLevel}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Week Change:</span>
-                    <div className={`font-medium ${selectedContract.weekChange > 0 ? 'text-success' : 'text-destructive'}`}>
-                      {selectedContract.weekChange > 0 ? '+' : ''}{selectedContract.weekChange.toFixed(1)}
+              <div className="space-y-6">
+                {/* Current Metrics */}
+                <div className="grid grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Commercial Index</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{selectedContract.comm_index.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        WoW Change: {selectedContract.wow_comm_delta > 0 ? '+' : ''}{selectedContract.wow_comm_delta}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Large Spec Index</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{selectedContract.ls_index.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        WoW Change: {selectedContract.wow_ls_delta > 0 ? '+' : ''}{selectedContract.wow_ls_delta}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Small Spec Index</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{selectedContract.ss_index.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        WoW Change: {selectedContract.wow_ss_delta > 0 ? '+' : ''}{selectedContract.wow_ss_delta}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Summary */}
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-semibold mb-2">Analysis Summary</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Signal Type:</span>
+                      <div className="font-medium">
+                        {selectedContract.comm_index >= thresholdHigh ? 'Short Setup' : 
+                         selectedContract.comm_index <= thresholdLow ? 'Long Setup' : 'Neutral'}
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Current Index:</span>
-                    <div className="font-medium">{selectedContract.commercialIndex}/100</div>
+                    <div>
+                      <span className="text-muted-foreground">Risk Level:</span>
+                      <div className="font-medium">
+                        {selectedContract.comm_index >= thresholdHigh || selectedContract.comm_index <= thresholdLow ? 'High' : 'Medium'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Week Change:</span>
+                      <div className={`font-medium ${selectedContract.wow_comm_delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {selectedContract.wow_comm_delta > 0 ? '+' : ''}{selectedContract.wow_comm_delta}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Report Date:</span>
+                      <div className="font-medium">{selectedContract.report_date}</div>
+                    </div>
                   </div>
                 </div>
               </div>

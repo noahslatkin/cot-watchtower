@@ -20,10 +20,10 @@ app.add_middleware(
 
 # Supabase client initialization
 supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
+supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not supabase_url or not supabase_key:
-    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_KEY environment variables")
+    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables")
 
 supabase: Client = create_client(supabase_url, supabase_key)
 
