@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface RefreshStatus {
   lastRefresh: Date | null;
@@ -14,29 +14,59 @@ interface RefreshContextType {
 
 const RefreshContext = createContext<RefreshContextType | undefined>(undefined);
 
+const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api';
+
 export function RefreshProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<RefreshStatus>({
-    lastRefresh: new Date(2025, 6, 11, 16, 0), // Mock last Friday July 11, 2025 at 4PM
+    lastRefresh: null,
     isRefreshing: false,
-    rowsUpdated: 2847,
+    rowsUpdated: 0,
     error: null
   });
+
+  // Fetch refresh status on mount
+  useEffect(() => {
+    fetchRefreshStatus();
+  }, []);
+
+  const fetchRefreshStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/refresh/status`);
+      if (response.ok) {
+        const data = await response.json();
+        setStatus({
+          lastRefresh: data.run_at ? new Date(data.run_at) : null,
+          isRefreshing: false,
+          rowsUpdated: data.rows_inserted || 0,
+          error: data.error || null
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch refresh status:', error);
+    }
+  };
 
   const triggerRefresh = async () => {
     setStatus(prev => ({ ...prev, isRefreshing: true, error: null }));
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      const response = await fetch(`${API_BASE}/refresh/run`, { method: 'GET' });
+      const data = await response.json();
       
-      // Mock successful refresh
-      const newRowsUpdated = Math.floor(Math.random() * 1000) + 2000;
-      setStatus({
-        lastRefresh: new Date(),
-        isRefreshing: false,
-        rowsUpdated: newRowsUpdated,
-        error: null
-      });
+      if (response.ok && data.status === 'success') {
+        setStatus({
+          lastRefresh: new Date(),
+          isRefreshing: false,
+          rowsUpdated: data.inserted || 0,
+          error: null
+        });
+      } else {
+        setStatus(prev => ({
+          ...prev,
+          isRefreshing: false,
+          error: data.error || 'Failed to refresh data. Please try again.'
+        }));
+      }
     } catch (error) {
       setStatus(prev => ({
         ...prev,
