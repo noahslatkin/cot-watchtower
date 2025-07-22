@@ -80,7 +80,7 @@ async def get_cot_data(
 async def get_latest_cot():
     """Get the latest COT data for all contracts."""
     try:
-        response = supabase.from_("cot_latest").select(
+        response = supabase.table("cot_latest").select(
             "*, contracts(name, sector)"
         ).execute()
         return response.data
@@ -105,7 +105,7 @@ async def get_extreme_readings(
 ):
     """Get contracts with extreme commercial index readings."""
     try:
-        response = supabase.from_("cot_latest").select(
+        response = supabase.table("cot_latest").select(
             "*, contracts(name, sector)"
         ).or_(f"comm_index.lte.{min_threshold},comm_index.gte.{max_threshold}").execute()
         return response.data
