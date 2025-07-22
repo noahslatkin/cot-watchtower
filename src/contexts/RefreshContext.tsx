@@ -40,23 +40,10 @@ export function RefreshProvider({ children }: { children: ReactNode }) {
           rowsUpdated: data.rows_inserted || 0,
           error: data.error || null
         });
-      } else {
-        // Fallback when backend is not available
-        setStatus({
-          lastRefresh: null,
-          isRefreshing: false,
-          rowsUpdated: 0,
-          error: 'Backend not connected - please start FastAPI server'
-        });
       }
     } catch (error) {
-      // Fallback when backend is not available
-      setStatus({
-        lastRefresh: null,
-        isRefreshing: false,
-        rowsUpdated: 0,
-        error: 'Backend not connected - please start FastAPI server'
-      });
+      console.error('Failed to fetch refresh status:', error);
+      setStatus(prev => ({ ...prev, error: 'Failed to connect to API' }));
     }
   };
 

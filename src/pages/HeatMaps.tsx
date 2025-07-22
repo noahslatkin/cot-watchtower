@@ -121,9 +121,7 @@ export default function HeatMaps() {
         setContractsData(processedData);
         setError(null);
       } catch (err) {
-        // Fallback: show empty state with helpful message
-        setContractsData([]);
-        setError('Backend not connected - please start FastAPI server at localhost:8000');
+        setError(err instanceof Error ? err.message : 'An error occurred');
         console.error('Error fetching COT data:', err);
       } finally {
         setLoading(false);
