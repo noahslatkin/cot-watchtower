@@ -1,168 +1,150 @@
-from fastapi import FastAPI, Query, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from supabase import create_client
 import os
-from datetime import datetime
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from supabase import create_client, Client
+from datetime import datetime, date
+from typing import Optional, List, Dict, Any
+import asyncio
 from etl.cot_ingest import full_backfill
 
 app = FastAPI(title="COT Data API", version="1.0.0")
 
-# Add CORS middleware
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize Supabase client
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+# Supabase client initialization
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    raise ValueError("Missing required environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY")
+if not supabase_url or not supabase_key:
+    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_KEY environment variables")
 
-sb = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+supabase: Client = create_client(supabase_url, supabase_key)
 
 @app.get("/")
-def root():
+async def root():
     return {"message": "COT Data API", "version": "1.0.0"}
 
 @app.get("/api/refresh/run")
-def run_refresh():
-    """Trigger a full data refresh from CFTC"""
+async def trigger_refresh():
+    """Trigger a full data backfill from CFTC."""
     try:
-        ins, upd = full_backfill()
-        return {"inserted": ins, "updated": upd, "status": "success"}
+        result = await asyncio.to_thread(full_backfill)
+        return {"status": "success", "result": result}
     except Exception as e:
-        return {"error": str(e), "status": "failed"}
+        return {"status": "error", "error": str(e)}
 
 @app.get("/api/refresh/status")
-def refresh_status():
-    """Get the status of the last refresh operation"""
+async def get_refresh_status():
+    """Get the status of the last data refresh."""
     try:
-        res = sb.table('refresh_log').select('*').order('run_at', desc=True).limit(1).execute()
-        if res.data:
-            return res.data[0]
-        else:
-            return {"message": "No refresh history found"}
+        response = supabase.table("refresh_log").select("*").order("id", desc=True).limit(1).execute()
+        if response.data:
+            return response.data[0]
+        return {"run_at": None, "rows_inserted": 0, "rows_updated": 0, "error": None}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/contracts")
-def get_contracts():
-    """Get all available contracts"""
+async def get_contracts():
+    """Fetch all available contracts."""
     try:
-        res = sb.table('contracts').select('*').order('name').execute()
-        return res.data
+        response = supabase.table("contracts").select("*").order("name").execute()
+        return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/cot")
-def get_cot(contract_id: str, frm: str, to: str):
-    """Get COT data for a specific contract within date range"""
+async def get_cot_data(
+    contract_id: str = Query(...),
+    frm: str = Query(...),
+    to: str = Query(...)
+):
+    """Get COT data for a specific contract within a date range."""
     try:
-        q = (sb.table('cot_metrics')
-              .select('*')
-              .eq('contract_id', contract_id)
-              .gte('report_date', frm)
-              .lte('report_date', to)
-              .order('report_date'))
-        return q.execute().data
+        response = supabase.table("cot_metrics").select(
+            "report_date, comm_net, ls_net, ss_net, comm_index, ls_index, ss_index, "
+            "wow_comm_delta, wow_ls_delta, wow_ss_delta"
+        ).eq("contract_id", contract_id).gte("report_date", frm).lte("report_date", to).order("report_date").execute()
+        return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/cot/latest")
-def get_latest():
-    """Get latest COT data for all contracts"""
+async def get_latest_cot():
+    """Get the latest COT data for all contracts."""
     try:
-        # Get latest report date first
-        latest_date_res = sb.table('cot_metrics').select('report_date').order('report_date', desc=True).limit(1).execute()
-        if not latest_date_res.data:
-            return []
-        
-        latest_date = latest_date_res.data[0]['report_date']
-        
-        # Get all data for latest date with contract details
-        res = (sb.table('cot_metrics')
-                 .select('*, contracts(name, sector)')
-                 .eq('report_date', latest_date)
-                 .execute())
-        return res.data
+        response = supabase.from_("cot_latest").select(
+            "*, contracts(name, sector)"
+        ).execute()
+        return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/heatmap")
-def heatmap(date: str = Query(..., description="Date in YYYY-MM-DD format")):
-    """Get heatmap data for a specific date"""
+async def get_heatmap_data(date: str = Query(...)):
+    """Get heatmap data for a specified date."""
     try:
-        # Get all metrics for the specified date
-        res = (sb.table('cot_metrics')
-                 .select('contract_id, report_date, comm_index, ls_index, ss_index, wow_comm_delta, wow_ls_delta, wow_ss_delta, contracts(name, sector)')
-                 .eq('report_date', date)
-                 .execute())
-        
-        return res.data
+        response = supabase.table("cot_metrics").select(
+            "*, contracts(name, sector)"
+        ).eq("report_date", date).execute()
+        return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/extremes")
-def get_extremes(min_threshold: float = 5.0, max_threshold: float = 95.0):
-    """Get contracts with extreme commercial index readings"""
+async def get_extreme_readings(
+    min_threshold: float = Query(5),
+    max_threshold: float = Query(95)
+):
+    """Get contracts with extreme commercial index readings."""
     try:
-        # Get latest date
-        latest_date_res = sb.table('cot_metrics').select('report_date').order('report_date', desc=True).limit(1).execute()
-        if not latest_date_res.data:
-            return []
-        
-        latest_date = latest_date_res.data[0]['report_date']
-        
-        # Get extreme readings
-        res = (sb.table('cot_metrics')
-                 .select('*, contracts(name, sector)')
-                 .eq('report_date', latest_date)
-                 .or_(f'comm_index.lte.{min_threshold},comm_index.gte.{max_threshold}')
-                 .order('comm_index')
-                 .execute())
-        
-        return res.data
+        response = supabase.from_("cot_latest").select(
+            "*, contracts(name, sector)"
+        ).or_(f"comm_index.lte.{min_threshold},comm_index.gte.{max_threshold}").execute()
+        return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/contract/{contract_name}")
-def get_contract_by_name(contract_name: str):
-    """Get contract details by name"""
+async def get_contract_by_name(contract_name: str):
+    """Get contract details by name."""
     try:
-        res = sb.table('contracts').select('*').eq('name', contract_name).execute()
-        if res.data:
-            return res.data[0]
-        else:
+        response = supabase.table("contracts").select("*").eq("name", contract_name).execute()
+        if not response.data:
             raise HTTPException(status_code=404, detail="Contract not found")
+        return response.data[0]
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/debug/latest")
-def debug_latest():
-    """Debug endpoint to check data freshness"""
+async def debug_latest():
+    """Debug endpoint to check data freshness and database status."""
     try:
         # Get latest report date
-        latest_res = sb.table('cot_metrics').select('report_date').order('report_date', desc=True).limit(1).execute()
-        latest_date = latest_res.data[0]['report_date'] if latest_res.data else None
+        latest_response = supabase.table("cot_metrics").select("report_date").order("report_date", desc=True).limit(1).execute()
+        latest_date = latest_response.data[0]["report_date"] if latest_response.data else None
         
         # Get row count
-        count_res = sb.table('cot_metrics').select('*', count='exact').execute()
-        row_count = count_res.count
+        count_response = supabase.table("cot_metrics").select("*", count="exact").execute()
+        total_rows = count_response.count
         
         # Get last refresh
-        refresh_res = sb.table('refresh_log').select('*').order('run_at', desc=True).limit(1).execute()
-        last_refresh = refresh_res.data[0] if refresh_res.data else None
+        refresh_response = supabase.table("refresh_log").select("*").order("id", desc=True).limit(1).execute()
+        last_refresh = refresh_response.data[0] if refresh_response.data else None
         
         return {
             "latest_report_date": latest_date,
-            "rows_in_db": row_count,
-            "last_refresh": last_refresh['run_at'] if last_refresh else None,
-            "last_refresh_details": last_refresh
+            "total_rows": total_rows,
+            "last_refresh": last_refresh
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
