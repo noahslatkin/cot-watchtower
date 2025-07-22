@@ -4,12 +4,16 @@ import { IndexChart } from "@/components/charts/IndexChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Activity, BarChart3, Users, AlertTriangle } from "lucide-react";
 
-// Mock data for demonstration
+// Mock data for demonstration - matching CMR chart style
 const mockCOTData = [
-  { date: "2024-07-01", commercial: 45000, largeSpec: -32000, smallSpec: -13000 },
-  { date: "2024-07-08", commercial: 48000, largeSpec: -35000, smallSpec: -13000 },
-  { date: "2024-07-15", commercial: 52000, largeSpec: -38000, smallSpec: -14000 },
-  { date: "2024-07-22", commercial: 49000, largeSpec: -34000, smallSpec: -15000 },
+  { date: "2024-06-01", commercial: 45000, largeSpec: -32000, smallSpec: -13000, openInterest: 48000 },
+  { date: "2024-06-08", commercial: 48000, largeSpec: -35000, smallSpec: -13000, openInterest: 49000 },
+  { date: "2024-06-15", commercial: 52000, largeSpec: -38000, smallSpec: -14000, openInterest: 51000 },
+  { date: "2024-06-22", commercial: 49000, largeSpec: -34000, smallSpec: -15000, openInterest: 52000 },
+  { date: "2024-06-29", commercial: 55000, largeSpec: -40000, smallSpec: -15000, openInterest: 53000 },
+  { date: "2024-07-06", commercial: 58000, largeSpec: -42000, smallSpec: -16000, openInterest: 54000 },
+  { date: "2024-07-13", commercial: 61000, largeSpec: -45000, smallSpec: -16000, openInterest: 55000 },
+  { date: "2024-07-20", commercial: 59000, largeSpec: -43000, smallSpec: -16000, openInterest: 56000 },
 ];
 
 const mockIndexData = [
