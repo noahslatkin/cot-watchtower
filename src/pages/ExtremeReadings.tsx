@@ -53,7 +53,9 @@ export default function ExtremeReadings() {
         setExtremeContracts(data);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        // Fallback: show empty state with helpful message
+        setExtremeContracts([]);
+        setError('Backend not connected - please start FastAPI server at localhost:8000');
         console.error('Error fetching extreme readings:', err);
       } finally {
         setLoading(false);
