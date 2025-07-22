@@ -8,8 +8,7 @@ import { COTChart } from "@/components/charts/COTChart";
 import { IndexChart } from "@/components/charts/IndexChart";
 import { useDateRange } from '@/contexts/DateRangeContext';
 import { TrendingUp, TrendingDown, Activity, AlertTriangle } from "lucide-react";
-
-const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api';
+import { EDGE_BASE, fetchJSON } from '@/lib/api';
 
 interface COTData {
   report_date: string;
@@ -49,26 +48,27 @@ export default function MarketDetail() {
           word.charAt(0).toUpperCase() + word.slice(1)
         ).join(' ').replace('And', '&');
         
-        // Find contract by name
-        const contractResponse = await fetch(`${API_BASE}/contract/${encodeURIComponent(contractName)}`);
-        if (!contractResponse.ok) {
-          throw new Error('Contract not found');
+        // For now, create a mock contract since we don't have contract lookup yet
+        const mockContract = {
+          id: 'mock-id',
+          name: contractName,
+          sector: 'Unknown'
+        };
+        setContract(mockContract);
+
+        // Fetch latest COT data and filter for this contract
+        const data = await fetchJSON(`${EDGE_BASE}/cot/latest`);
+        
+        // Filter for this contract (approximate match)
+        const contractData = data.find((item: any) => 
+          item.contracts?.name?.toLowerCase().includes(contractName.toLowerCase())
+        );
+        
+        if (contractData) {
+          setCotData([contractData]);
+        } else {
+          throw new Error('Contract data not found');
         }
-        
-        const contractData = await contractResponse.json();
-        setContract(contractData);
-        
-        // Fetch COT data for date range
-        const fromDate = dateRange.from.toISOString().split('T')[0];
-        const toDate = dateRange.to.toISOString().split('T')[0];
-        
-        const cotResponse = await fetch(`${API_BASE}/cot?contract_id=${contractData.id}&frm=${fromDate}&to=${toDate}`);
-        if (!cotResponse.ok) {
-          throw new Error('Failed to fetch COT data');
-        }
-        
-        const cotData = await cotResponse.json();
-        setCotData(cotData);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
