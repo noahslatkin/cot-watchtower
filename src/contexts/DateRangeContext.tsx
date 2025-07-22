@@ -17,8 +17,8 @@ const DateRangeContext = createContext<DateRangeContextType | undefined>(undefin
 export function DateRangeProvider({ children }: { children: ReactNode }) {
   const [preset, setPreset] = useState('90d');
   const [dateRange, setDateRange] = useState<DateRange>({
-    from: new Date(new Date().setDate(new Date().getDate() - 90)),
-    to: new Date()
+    from: new Date(2025, 3, 15), // April 15, 2025 (90 days before July 15, 2025)
+    to: new Date(2025, 6, 15)    // July 15, 2025 - latest COT data
   });
 
   return (

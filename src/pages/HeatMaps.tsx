@@ -188,7 +188,7 @@ export default function HeatMaps() {
         <CardHeader>
           <CardTitle>Week over Week Heat Map</CardTitle>
           <div className="text-sm text-muted-foreground">
-            Sortable table with all contracts - click column headers to sort
+            Data as of July 15, 2025 vs July 8, 2025
           </div>
         </CardHeader>
         <CardContent>

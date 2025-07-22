@@ -28,14 +28,14 @@ const generateMockData = (contractName: string, sector: string) => {
   const slug = contractName.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and');
   const seed = contractSeeds[slug as keyof typeof contractSeeds] || contractSeeds.gold;
   
-  // Generate COT data with some variation
+  // Generate COT data with some variation - updated to July 2025
   const cotData = [];
   const indexData = [];
   let commercialBase = seed.base;
   let currentIndex = Math.max(5, Math.min(95, seed.index + (Math.random() - 0.5) * 10));
   
-  for (let i = 0; i < 8; i++) {
-    const date = new Date(2024, 5, 1 + i * 7).toISOString().split('T')[0];
+  for (let i = 0; i < 52; i++) { // 52 weeks of data
+    const date = new Date(2024, 6, 15 + i * 7).toISOString().split('T')[0]; // Start July 15, 2024
     const variation = (Math.random() - 0.5) * 0.1;
     
     commercialBase *= (1 + variation);

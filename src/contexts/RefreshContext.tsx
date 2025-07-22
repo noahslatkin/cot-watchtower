@@ -16,7 +16,7 @@ const RefreshContext = createContext<RefreshContextType | undefined>(undefined);
 
 export function RefreshProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<RefreshStatus>({
-    lastRefresh: new Date(2024, 6, 19, 16, 0), // Mock last Friday 4PM
+    lastRefresh: new Date(2025, 6, 11, 16, 0), // Mock last Friday July 11, 2025 at 4PM
     isRefreshing: false,
     rowsUpdated: 2847,
     error: null

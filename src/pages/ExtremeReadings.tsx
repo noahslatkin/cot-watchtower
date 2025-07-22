@@ -39,25 +39,25 @@ const generateExtremeReadings = () => {
       
       // Only include if it's actually extreme
       if (commercialIndex <= 5 || commercialIndex >= 95) {
-        // Generate price data (mock daily prices)
+        // Generate price data (mock daily prices) - updated to July 2025
         const priceData = [];
         let price = Math.random() * 1000 + 100;
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 365; i++) { // Full year of daily prices
           price += (Math.random() - 0.5) * price * 0.02;
           priceData.push({
-            date: new Date(2024, 6, i + 1).toISOString().split('T')[0],
+            date: new Date(2024, 6, 15 + i).toISOString().split('T')[0], // July 15, 2024 to July 2025
             price: Math.round(price * 100) / 100
           });
         }
         
-        // Generate index history
+        // Generate index history - updated to July 2025
         const indexHistory = [];
         let index = commercialIndex;
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 52; i++) { // 52 weeks of data
           index += (Math.random() - 0.5) * 8;
           index = Math.max(0, Math.min(100, index));
           indexHistory.push({
-            date: new Date(2024, 5, 1 + i * 7).toISOString().split('T')[0],
+            date: new Date(2024, 6, 15 + i * 7).toISOString().split('T')[0], // Weekly data from July 15, 2024
             commercialIndex: Math.round(index),
             largeSpecIndex: Math.round(100 - index + (Math.random() - 0.5) * 10),
             smallSpecIndex: Math.round(50 + (Math.random() - 0.5) * 20)
