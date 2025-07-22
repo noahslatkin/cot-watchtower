@@ -2,41 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* COT Trading Dashboard Design System - Professional Financial Platform */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core Background & Foreground */
+    --background: 210 11% 96%;
+    --foreground: 215 25% 16%;
 
+    /* Card System */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 16%;
 
+    /* Popover System */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 16%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary Brand - Professional Blue */
+    --primary: 215 85% 34%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 215 85% 29%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Subtle Professional */
+    --secondary: 215 16% 92%;
+    --secondary-foreground: 215 25% 16%;
+    --secondary-hover: 215 16% 88%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted - Data Backgrounds */
+    --muted: 215 16% 94%;
+    --muted-foreground: 215 13% 42%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Financial Green */
+    --accent: 142 71% 45%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Financial Data Colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Chart Colors for COT Data */
+    --chart-commercial: 215 85% 34%;
+    --chart-large-spec: 142 71% 45%;
+    --chart-small-spec: 38 92% 50%;
+    --chart-grid: 215 16% 88%;
+    --chart-text: 215 13% 42%;
 
-    --radius: 0.5rem;
+    /* Professional Borders & Inputs */
+    --border: 215 16% 88%;
+    --input: 215 16% 88%;
+    --ring: 215 85% 34%;
+
+    /* Professional Radius */
+    --radius: 0.375rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -56,41 +77,65 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark Mode - Professional Trading Interface */
+    --background: 215 25% 8%;
+    --foreground: 0 0% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    /* Card System - Dark */
+    --card: 215 25% 10%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    /* Popover System - Dark */
+    --popover: 215 25% 10%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Primary - Bright Professional Blue */
+    --primary: 215 85% 55%;
+    --primary-foreground: 215 25% 8%;
+    --primary-hover: 215 85% 60%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary - Dark Professional */
+    --secondary: 215 25% 14%;
+    --secondary-foreground: 0 0% 95%;
+    --secondary-hover: 215 25% 16%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Muted - Dark Data Backgrounds */
+    --muted: 215 25% 12%;
+    --muted-foreground: 215 12% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Accent - Financial Green (Dark) */
+    --accent: 142 71% 55%;
+    --accent-foreground: 215 25% 8%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* Financial Data Colors - Dark Mode */
+    --success: 142 71% 55%;
+    --success-foreground: 215 25% 8%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 215 25% 8%;
+    --destructive: 0 72% 61%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Chart Colors for COT Data - Dark Mode */
+    --chart-commercial: 215 85% 55%;
+    --chart-large-spec: 142 71% 55%;
+    --chart-small-spec: 38 92% 60%;
+    --chart-grid: 215 25% 18%;
+    --chart-text: 215 12% 65%;
+
+    /* Professional Borders & Inputs - Dark */
+    --border: 215 25% 18%;
+    --input: 215 25% 14%;
+    --ring: 215 85% 55%;
+
+    /* Sidebar - Dark Mode */
+    --sidebar-background: 215 25% 6%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 215 85% 55%;
+    --sidebar-primary-foreground: 215 25% 8%;
+    --sidebar-accent: 215 25% 12%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 215 25% 14%;
+    --sidebar-ring: 215 85% 55%;
   }
 }
 
