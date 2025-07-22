@@ -7,39 +7,98 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, Activity, AlertTriangle } from "lucide-react";
 
-// Mock data - in real app would fetch based on market param
-const mockData = {
-  "gold": {
-    name: "Gold",
-    sector: "Metals",
-    currentIndex: 92,
-    weekChange: "+12",
-    cotData: [
-      { date: "2024-06-01", commercial: 298123, largeSpec: -245678, smallSpec: -52445, openInterest: 345000 },
-      { date: "2024-06-08", commercial: 301234, largeSpec: -248901, smallSpec: -52333, openInterest: 348000 },
-      { date: "2024-06-15", commercial: 305678, largeSpec: -252345, smallSpec: -53333, openInterest: 351000 },
-      { date: "2024-06-22", commercial: 309123, largeSpec: -255678, smallSpec: -53445, openInterest: 354000 },
-      { date: "2024-06-29", commercial: 312456, largeSpec: -259012, smallSpec: -53444, openInterest: 357000 },
-      { date: "2024-07-06", commercial: 315789, largeSpec: -262345, smallSpec: -53444, openInterest: 360000 },
-      { date: "2024-07-13", commercial: 319123, largeSpec: -265678, smallSpec: -53445, openInterest: 363000 },
-      { date: "2024-07-20", commercial: 322456, largeSpec: -269012, smallSpec: -53444, openInterest: 366000 },
-    ],
-    indexData: [
-      { date: "2024-06-01", commercialIndex: 65, largeSpecIndex: 35, smallSpecIndex: 45 },
-      { date: "2024-06-08", commercialIndex: 68, largeSpecIndex: 32, smallSpecIndex: 48 },
-      { date: "2024-06-15", commercialIndex: 72, largeSpecIndex: 28, smallSpecIndex: 52 },
-      { date: "2024-06-22", commercialIndex: 76, largeSpecIndex: 24, smallSpecIndex: 48 },
-      { date: "2024-06-29", commercialIndex: 80, largeSpecIndex: 20, smallSpecIndex: 45 },
-      { date: "2024-07-06", commercialIndex: 85, largeSpecIndex: 15, smallSpecIndex: 42 },
-      { date: "2024-07-13", commercialIndex: 89, largeSpecIndex: 11, smallSpecIndex: 38 },
-      { date: "2024-07-20", commercialIndex: 92, largeSpecIndex: 8, smallSpecIndex: 35 },
-    ]
+// Generate mock data for each contract - in real app would fetch from API
+const generateMockData = (contractName: string, sector: string) => {
+  // Different base values for different contracts to make them unique
+  const contractSeeds = {
+    'gold': { base: 300000, index: 92, change: '+12' },
+    'silver': { base: 150000, index: 85, change: '+8' },
+    'copper': { base: 80000, index: 78, change: '+5' },
+    'platinum': { base: 45000, index: 15, change: '-18' },
+    'e-mini-s-and-p-500': { base: 2800000, index: 25, change: '-12' },
+    'e-mini-nasdaq-100': { base: 180000, index: 35, change: '-8' },
+    'e-mini-dow': { base: 85000, index: 45, change: '-5' },
+    'crude-oil-wti': { base: 350000, index: 88, change: '+15' },
+    'natural-gas': { base: 200000, index: 12, change: '-22' },
+    'euro-fx': { base: 180000, index: 75, change: '+6' },
+    'japanese-yen': { base: 150000, index: 20, change: '-15' },
+    'british-pound': { base: 120000, index: 68, change: '+3' },
+  };
+
+  const slug = contractName.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and');
+  const seed = contractSeeds[slug as keyof typeof contractSeeds] || contractSeeds.gold;
+  
+  // Generate COT data with some variation
+  const cotData = [];
+  const indexData = [];
+  let commercialBase = seed.base;
+  let currentIndex = Math.max(5, Math.min(95, seed.index + (Math.random() - 0.5) * 10));
+  
+  for (let i = 0; i < 8; i++) {
+    const date = new Date(2024, 5, 1 + i * 7).toISOString().split('T')[0];
+    const variation = (Math.random() - 0.5) * 0.1;
+    
+    commercialBase *= (1 + variation);
+    const commercial = Math.round(commercialBase);
+    const largeSpec = Math.round(-commercial * 0.8 + (Math.random() - 0.5) * commercial * 0.2);
+    const smallSpec = Math.round(-(commercial + largeSpec) + (Math.random() - 0.5) * commercial * 0.1);
+    const openInterest = Math.round(commercial * 1.15 + Math.sin(i * 0.5) * commercial * 0.1);
+    
+    cotData.push({
+      date,
+      commercial,
+      largeSpec,
+      smallSpec,
+      openInterest
+    });
+    
+    // Generate index data
+    currentIndex += (Math.random() - 0.5) * 5;
+    currentIndex = Math.max(5, Math.min(95, currentIndex));
+    
+    indexData.push({
+      date,
+      commercialIndex: Math.round(currentIndex),
+      largeSpecIndex: Math.round(100 - currentIndex + (Math.random() - 0.5) * 10),
+      smallSpecIndex: Math.round(50 + (Math.random() - 0.5) * 20)
+    });
   }
+
+  return {
+    name: contractName,
+    sector,
+    currentIndex: Math.round(currentIndex),
+    weekChange: seed.change,
+    cotData,
+    indexData
+  };
 };
 
 export default function MarketDetail() {
   const { marketId } = useParams();
-  const market = mockData[marketId as keyof typeof mockData] || mockData.gold;
+  
+  // Convert URL slug back to contract name and find sector
+  const contractName = marketId?.split('-').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ').replace('And', '&') || 'Gold';
+  
+  // Find the sector for this contract
+  const marketSectors = [
+    { title: "Equities", markets: ["E-mini S&P 500", "E-mini Nasdaq-100", "E-mini Dow"] },
+    { title: "Fixed Income", markets: ["2-Year Note", "5-Year Note", "10-Year Note", "30-Year Bond"] },
+    { title: "Currencies", markets: ["Euro FX", "Japanese Yen", "British Pound", "Canadian Dollar"] },
+    { title: "Energies", markets: ["Crude Oil WTI", "Brent Crude", "Natural Gas", "Heating Oil"] },
+    { title: "Metals", markets: ["Gold", "Silver", "Copper", "Platinum"] },
+    { title: "Softs", markets: ["Coffee C", "Sugar #11", "Cotton #2", "Cocoa"] },
+    { title: "Grains", markets: ["Corn", "Soybeans", "Wheat", "Soybean Oil"] },
+    { title: "Livestock", markets: ["Live Cattle", "Feeder Cattle", "Lean Hogs"] }
+  ];
+  
+  const sector = marketSectors.find(s => 
+    s.markets.some(m => m.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and') === marketId)
+  )?.title || 'Metals';
+  
+  const market = generateMockData(contractName, sector);
 
   const getStatusBadge = (index: number) => {
     if (index >= 95) return { variant: "destructive" as const, text: "Extreme Long" };

@@ -1,27 +1,47 @@
 import { MetricCard } from "@/components/widgets/MetricCard";
-import { COTChart } from "@/components/charts/COTChart";
-import { IndexChart } from "@/components/charts/IndexChart";
+import { SortedBarChart } from "@/components/charts/SortedBarChart";
+import { SectorPanel } from "@/components/charts/SectorPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Activity, BarChart3, Users, AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-// Mock data for demonstration - matching CMR chart style
-const mockCOTData = [
-  { date: "2024-06-01", commercial: 45000, largeSpec: -32000, smallSpec: -13000, openInterest: 48000 },
-  { date: "2024-06-08", commercial: 48000, largeSpec: -35000, smallSpec: -13000, openInterest: 49000 },
-  { date: "2024-06-15", commercial: 52000, largeSpec: -38000, smallSpec: -14000, openInterest: 51000 },
-  { date: "2024-06-22", commercial: 49000, largeSpec: -34000, smallSpec: -15000, openInterest: 52000 },
-  { date: "2024-06-29", commercial: 55000, largeSpec: -40000, smallSpec: -15000, openInterest: 53000 },
-  { date: "2024-07-06", commercial: 58000, largeSpec: -42000, smallSpec: -16000, openInterest: 54000 },
-  { date: "2024-07-13", commercial: 61000, largeSpec: -45000, smallSpec: -16000, openInterest: 55000 },
-  { date: "2024-07-20", commercial: 59000, largeSpec: -43000, smallSpec: -16000, openInterest: 56000 },
-];
+// Generate mock market data for CMR-style charts
+const generateMarketData = () => {
+  const sectors = [
+    { title: "Equities", markets: ["E-mini S&P 500", "E-mini Nasdaq-100", "E-mini Dow"] },
+    { title: "Fixed Income", markets: ["2-Year Note", "5-Year Note", "10-Year Note", "30-Year Bond"] },
+    { title: "Currencies", markets: ["Euro FX", "Japanese Yen", "British Pound", "Canadian Dollar"] },
+    { title: "Energies", markets: ["Crude Oil WTI", "Brent Crude", "Natural Gas", "Heating Oil"] },
+    { title: "Metals", markets: ["Gold", "Silver", "Copper", "Platinum"] },
+    { title: "Softs", markets: ["Coffee C", "Sugar #11", "Cotton #2", "Cocoa"] },
+    { title: "Grains", markets: ["Corn", "Soybeans", "Wheat", "Soybean Oil"] },
+    { title: "Livestock", markets: ["Live Cattle", "Feeder Cattle", "Lean Hogs"] }
+  ];
 
-const mockIndexData = [
-  { date: "2024-07-01", commercialIndex: 65, largeSpecIndex: 30, smallSpecIndex: 45 },
-  { date: "2024-07-08", commercialIndex: 75, largeSpecIndex: 25, smallSpecIndex: 40 },
-  { date: "2024-07-15", commercialIndex: 85, largeSpecIndex: 20, smallSpecIndex: 35 },
-  { date: "2024-07-22", commercialIndex: 78, largeSpecIndex: 28, smallSpecIndex: 42 },
-];
+  const allMarkets: any[] = [];
+  
+  sectors.forEach(sector => {
+    sector.markets.forEach(market => {
+      // Generate realistic but varied data for each market
+      const baseCommercial = Math.random() * 400000 + 50000;
+      const commercial = Math.round(baseCommercial * (Math.random() > 0.5 ? 1 : -1));
+      const largeSpec = Math.round(-commercial * (0.6 + Math.random() * 0.4));
+      const smallSpec = Math.round(-(commercial + largeSpec) * (0.8 + Math.random() * 0.4));
+      
+      allMarkets.push({
+        name: market,
+        sector: sector.title,
+        commercial,
+        largeSpec,
+        smallSpec
+      });
+    });
+  });
+  
+  return { allMarkets, sectors };
+};
+
+const { allMarkets, sectors } = generateMarketData();
 
 const recentMarkets = [
   { name: "Gold", change: "+2.3%", index: 92, status: "extreme" },
@@ -31,6 +51,8 @@ const recentMarkets = [
 ];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -51,14 +73,16 @@ export default function Dashboard() {
           icon={BarChart3}
           description="Active COT contracts"
         />
-        <MetricCard
-          title="Extreme Readings"
-          value="23"
-          change="+8 from last week"
-          changeType="positive"
-          icon={AlertTriangle}
-          description="Markets at 95+ or 5- index"
-        />
+        <div onClick={() => navigate('/extreme-readings')} className="cursor-pointer">
+          <MetricCard
+            title="Extreme Readings"
+            value="23"
+            change="+8 from last week"
+            changeType="positive"
+            icon={AlertTriangle}
+            description="Markets at 95+ or 5- index"
+          />
+        </div>
         <MetricCard
           title="Setup Signals"
           value="15"
@@ -77,18 +101,38 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <COTChart 
-          data={mockCOTData} 
-          title="Gold Net Positions (Contracts)" 
-          height={350}
+      {/* Overall Market - Sorted Charts */}
+      <div className="space-y-6">
+        <SortedBarChart 
+          title="Overall Market - Sorted by Net Positions" 
+          data={allMarkets}
+          height={400}
         />
-        <IndexChart 
-          data={mockIndexData} 
-          title="Gold Commercial Index (0-100)" 
-          height={350}
-        />
+      </div>
+
+      {/* Sector Panels */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-foreground">Market Sectors</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {sectors.slice(0, 4).map(sector => (
+            <SectorPanel 
+              key={sector.title}
+              title={sector.title}
+              data={allMarkets.filter(m => m.sector === sector.title)}
+              height={250}
+            />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {sectors.slice(4, 8).map(sector => (
+            <SectorPanel 
+              key={sector.title}
+              title={sector.title}
+              data={allMarkets.filter(m => m.sector === sector.title)}
+              height={250}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Recent Markets & Weekly Summary */}

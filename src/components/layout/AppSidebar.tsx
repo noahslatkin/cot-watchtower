@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -40,8 +41,9 @@ import {
 } from "@/components/ui/collapsible";
 
 const mainItems = [
-  { title: "Dashboard", url: "/", icon: Home },
+  { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Heat Maps", url: "/heatmaps", icon: Map },
+  { title: "Extreme Readings", url: "/extreme-readings", icon: AlertTriangle },
   { title: "Journal", url: "/journal", icon: BookOpen },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
