@@ -1,104 +1,120 @@
-import { useParams } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { MetricCard } from "@/components/widgets/MetricCard";
 import { COTChart } from "@/components/charts/COTChart";
 import { IndexChart } from "@/components/charts/IndexChart";
-import { MetricCard } from "@/components/widgets/MetricCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDateRange } from '@/contexts/DateRangeContext';
 import { TrendingUp, TrendingDown, Activity, AlertTriangle } from "lucide-react";
 
-// Generate mock data for each contract - in real app would fetch from API
-const generateMockData = (contractName: string, sector: string) => {
-  // Different base values for different contracts to make them unique
-  const contractSeeds = {
-    'gold': { base: 300000, index: 92, change: '+12' },
-    'silver': { base: 150000, index: 85, change: '+8' },
-    'copper': { base: 80000, index: 78, change: '+5' },
-    'platinum': { base: 45000, index: 15, change: '-18' },
-    'e-mini-s-and-p-500': { base: 2800000, index: 25, change: '-12' },
-    'e-mini-nasdaq-100': { base: 180000, index: 35, change: '-8' },
-    'e-mini-dow': { base: 85000, index: 45, change: '-5' },
-    'crude-oil-wti': { base: 350000, index: 88, change: '+15' },
-    'natural-gas': { base: 200000, index: 12, change: '-22' },
-    'euro-fx': { base: 180000, index: 75, change: '+6' },
-    'japanese-yen': { base: 150000, index: 20, change: '-15' },
-    'british-pound': { base: 120000, index: 68, change: '+3' },
-  };
+const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api';
 
-  const slug = contractName.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and');
-  const seed = contractSeeds[slug as keyof typeof contractSeeds] || contractSeeds.gold;
-  
-  // Generate COT data with some variation - updated to July 2025
-  const cotData = [];
-  const indexData = [];
-  let commercialBase = seed.base;
-  let currentIndex = Math.max(5, Math.min(95, seed.index + (Math.random() - 0.5) * 10));
-  
-  for (let i = 0; i < 52; i++) { // 52 weeks of data
-    const date = new Date(2024, 6, 15 + i * 7).toISOString().split('T')[0]; // Start July 15, 2024
-    const variation = (Math.random() - 0.5) * 0.1;
-    
-    commercialBase *= (1 + variation);
-    const commercial = Math.round(commercialBase);
-    const largeSpec = Math.round(-commercial * 0.8 + (Math.random() - 0.5) * commercial * 0.2);
-    const smallSpec = Math.round(-(commercial + largeSpec) + (Math.random() - 0.5) * commercial * 0.1);
-    const openInterest = Math.round(commercial * 1.15 + Math.sin(i * 0.5) * commercial * 0.1);
-    
-    cotData.push({
-      date,
-      commercial,
-      largeSpec,
-      smallSpec,
-      openInterest
-    });
-    
-    // Generate index data
-    currentIndex += (Math.random() - 0.5) * 5;
-    currentIndex = Math.max(5, Math.min(95, currentIndex));
-    
-    indexData.push({
-      date,
-      commercialIndex: Math.round(currentIndex),
-      largeSpecIndex: Math.round(100 - currentIndex + (Math.random() - 0.5) * 10),
-      smallSpecIndex: Math.round(50 + (Math.random() - 0.5) * 20)
-    });
-  }
+interface COTData {
+  report_date: string;
+  comm_net: number;
+  ls_net: number;
+  ss_net: number;
+  comm_index: number;
+  ls_index: number;
+  ss_index: number;
+  wow_comm_delta: number;
+  wow_ls_delta: number;
+  wow_ss_delta: number;
+}
 
-  return {
-    name: contractName,
-    sector,
-    currentIndex: Math.round(currentIndex),
-    weekChange: seed.change,
-    cotData,
-    indexData
-  };
-};
+interface Contract {
+  id: string;
+  name: string;
+  sector: string;
+}
 
 export default function MarketDetail() {
-  const { marketId } = useParams();
+  const { marketId } = useParams<{ marketId: string }>();
+  const { dateRange } = useDateRange();
+  const [contract, setContract] = useState<Contract | null>(null);
+  const [cotData, setCotData] = useState<COTData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  // Convert URL slug back to contract name and find sector
-  const contractName = marketId?.split('-').map(word => 
-    word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ').replace('And', '&') || 'Gold';
+  useEffect(() => {
+    if (!marketId) return;
+    
+    const fetchContractAndData = async () => {
+      setLoading(true);
+      try {
+        // Convert slug to contract name
+        const contractName = marketId.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ').replace('And', '&');
+        
+        // Find contract by name
+        const contractResponse = await fetch(`${API_BASE}/contract/${encodeURIComponent(contractName)}`);
+        if (!contractResponse.ok) {
+          throw new Error('Contract not found');
+        }
+        
+        const contractData = await contractResponse.json();
+        setContract(contractData);
+        
+        // Fetch COT data for date range
+        const fromDate = dateRange.from.toISOString().split('T')[0];
+        const toDate = dateRange.to.toISOString().split('T')[0];
+        
+        const cotResponse = await fetch(`${API_BASE}/cot?contract_id=${contractData.id}&frm=${fromDate}&to=${toDate}`);
+        if (!cotResponse.ok) {
+          throw new Error('Failed to fetch COT data');
+        }
+        
+        const cotData = await cotResponse.json();
+        setCotData(cotData);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchContractAndData();
+  }, [marketId, dateRange]);
   
-  // Find the sector for this contract
-  const marketSectors = [
-    { title: "Equities", markets: ["E-mini S&P 500", "E-mini Nasdaq-100", "E-mini Dow"] },
-    { title: "Fixed Income", markets: ["2-Year Note", "5-Year Note", "10-Year Note", "30-Year Bond"] },
-    { title: "Currencies", markets: ["Euro FX", "Japanese Yen", "British Pound", "Canadian Dollar"] },
-    { title: "Energies", markets: ["Crude Oil WTI", "Brent Crude", "Natural Gas", "Heating Oil"] },
-    { title: "Metals", markets: ["Gold", "Silver", "Copper", "Platinum"] },
-    { title: "Softs", markets: ["Coffee C", "Sugar #11", "Cotton #2", "Cocoa"] },
-    { title: "Grains", markets: ["Corn", "Soybeans", "Wheat", "Soybean Oil"] },
-    { title: "Livestock", markets: ["Live Cattle", "Feeder Cattle", "Lean Hogs"] }
-  ];
+  if (!marketId) {
+    return <div>Market not found</div>;
+  }
   
-  const sector = marketSectors.find(s => 
-    s.markets.some(m => m.toLowerCase().replace(/\s+/g, '-').replace('#', '').replace('&', 'and') === marketId)
-  )?.title || 'Metals';
+  if (loading) {
+    return <div className="p-6">Loading market data...</div>;
+  }
   
-  const market = generateMockData(contractName, sector);
+  if (error || !contract) {
+    return <div className="p-6">Error: {error || 'Contract not found'}</div>;
+  }
+
+  // Transform COT data for charts
+  const chartData = cotData.map(item => ({
+    date: item.report_date,
+    commercial: item.comm_net,
+    largeSpec: item.ls_net,
+    smallSpec: item.ss_net
+  }));
+  
+  // Generate mock index data (replace with real price data later)
+  const indexData = cotData.map((item, index) => ({
+    date: item.report_date,
+    value: 3000 + Math.sin(index * 0.1) * 500 + Math.random() * 200
+  }));
+  
+  // Get latest data for metrics
+  const latestCOT = cotData[cotData.length - 1];
+  const previousCOT = cotData[cotData.length - 2];
+  
+  const commercialIndex = latestCOT ? latestCOT.comm_index : 0;
+  const weekChange = latestCOT ? latestCOT.wow_comm_delta : 0;
+  const weekChangePercent = previousCOT && previousCOT.comm_net !== 0 ? 
+    ((weekChange / Math.abs(previousCOT.comm_net)) * 100) : 0;
 
   const getStatusBadge = (index: number) => {
     if (index >= 95) return { variant: "destructive" as const, text: "Extreme Long" };
@@ -107,7 +123,7 @@ export default function MarketDetail() {
     return { variant: "secondary" as const, text: "Neutral" };
   };
 
-  const status = getStatusBadge(market.currentIndex);
+  const status = getStatusBadge(commercialIndex);
 
   return (
     <div className="space-y-6">
@@ -115,8 +131,8 @@ export default function MarketDetail() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground">{market.name}</h1>
-            <Badge variant="outline">{market.sector}</Badge>
+            <h1 className="text-3xl font-bold text-foreground">{contract.name}</h1>
+            <Badge variant="outline">{contract.sector}</Badge>
             <Badge variant={status.variant}>{status.text}</Badge>
           </div>
           <p className="text-muted-foreground mt-2">
@@ -129,33 +145,33 @@ export default function MarketDetail() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MetricCard
           title="Commercial Index"
-          value={market.currentIndex}
-          change={`${market.weekChange} this week`}
-          changeType={market.weekChange.startsWith('+') ? "positive" : "negative"}
+          value={commercialIndex.toFixed(1)}
+          change={`${weekChange > 0 ? '+' : ''}${weekChange} this week`}
+          changeType={weekChange >= 0 ? "positive" : "negative"}
           icon={Activity}
           description="0-100 percentile rank"
         />
         <MetricCard
           title="Large Spec Index"
-          value="8"
-          change="-15 this week"
-          changeType="negative"
+          value={latestCOT ? latestCOT.ls_index.toFixed(1) : "0"}
+          change={`${latestCOT && latestCOT.wow_ls_delta > 0 ? '+' : ''}${latestCOT ? latestCOT.wow_ls_delta : 0} this week`}
+          changeType={latestCOT && latestCOT.wow_ls_delta >= 0 ? "positive" : "negative"}
           icon={TrendingDown}
           description="Inverse to Commercial"
         />
         <MetricCard
           title="Position Risk"
-          value="High"
-          change="Extreme territory"
-          changeType="negative"
+          value={commercialIndex >= 95 || commercialIndex <= 5 ? "High" : "Medium"}
+          change={commercialIndex >= 95 || commercialIndex <= 5 ? "Extreme territory" : "Normal range"}
+          changeType={commercialIndex >= 95 || commercialIndex <= 5 ? "negative" : "positive"}
           icon={AlertTriangle}
           description="Commercial crowdedness"
         />
         <MetricCard
           title="Setup Signal"
-          value="Short"
-          change="Strong signal"
-          changeType="positive"
+          value={commercialIndex >= 95 ? "Short" : commercialIndex <= 5 ? "Long" : "Neutral"}
+          change={commercialIndex >= 95 || commercialIndex <= 5 ? "Strong signal" : "No signal"}
+          changeType={commercialIndex >= 95 || commercialIndex <= 5 ? "positive" : "neutral"}
           icon={TrendingUp}
           description="Based on index reading"
         />
@@ -171,16 +187,16 @@ export default function MarketDetail() {
 
         <TabsContent value="positions" className="space-y-4">
           <COTChart 
-            data={market.cotData} 
-            title={`${market.name} - Net Positions by Group`} 
+            data={chartData}
+            title="Net Positions"
             height={400}
           />
         </TabsContent>
 
         <TabsContent value="index" className="space-y-4">
           <IndexChart 
-            data={market.indexData} 
-            title={`${market.name} - Commercial Index (0-100)`} 
+            data={indexData}
+            title="Price Index"
             height={400}
           />
         </TabsContent>
@@ -195,17 +211,19 @@ export default function MarketDetail() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Commercial Index:</span>
-                    <span className="font-bold text-lg">{market.currentIndex}/100</span>
+                    <span className="font-bold text-lg">{commercialIndex.toFixed(1)}/100</span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div 
                       className="bg-chart-commercial h-2 rounded-full transition-all" 
-                      style={{ width: `${market.currentIndex}%` }}
+                      style={{ width: `${commercialIndex}%` }}
                     ></div>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Commercials are at the {market.currentIndex}th percentile of their 6-month range. 
-                    This is considered an extreme reading, suggesting high probability of price reversal.
+                    Commercials are at the {commercialIndex.toFixed(1)}th percentile of their historical range. 
+                    {commercialIndex >= 95 || commercialIndex <= 5 ? 
+                      ' This is considered an extreme reading, suggesting high probability of price reversal.' :
+                      ' This is within normal trading range.'}
                   </p>
                 </div>
               </CardContent>
@@ -217,25 +235,43 @@ export default function MarketDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
-                    <div className="font-medium text-destructive mb-1">Short Setup Signal</div>
-                    <div className="text-sm text-muted-foreground">
-                      Commercial index above 90 historically marks major tops. 
-                      Consider short positions with appropriate risk management.
+                  {commercialIndex >= 95 ? (
+                    <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                      <div className="font-medium text-destructive mb-1">Short Setup Signal</div>
+                      <div className="text-sm text-muted-foreground">
+                        Commercial index above 95 historically marks major tops. 
+                        Consider short positions with appropriate risk management.
+                      </div>
                     </div>
-                  </div>
+                  ) : commercialIndex <= 5 ? (
+                    <div className="p-3 bg-green-100 rounded-lg border border-green-200">
+                      <div className="font-medium text-green-700 mb-1">Long Setup Signal</div>
+                      <div className="text-sm text-muted-foreground">
+                        Commercial index below 5 historically marks major bottoms. 
+                        Consider long positions with appropriate risk management.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-muted/50 rounded-lg border">
+                      <div className="font-medium mb-1">No Clear Signal</div>
+                      <div className="text-sm text-muted-foreground">
+                        Commercial index is in neutral territory. Wait for extreme readings.
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Signal Strength:</span>
-                      <span className="font-medium">Very Strong</span>
+                      <span className="font-medium">
+                        {commercialIndex >= 95 || commercialIndex <= 5 ? 'Very Strong' : 
+                         commercialIndex >= 85 || commercialIndex <= 15 ? 'Moderate' : 'Weak'}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span>Historical Win Rate:</span>
-                      <span className="font-medium">78%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Avg Holding Period:</span>
-                      <span className="font-medium">4-8 weeks</span>
+                      <span>Week Change:</span>
+                      <span className={`font-medium ${weekChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {weekChange > 0 ? '+' : ''}{weekChange}
+                      </span>
                     </div>
                   </div>
                 </div>

@@ -26,7 +26,7 @@ export function DateRangePicker() {
     if (value !== "custom") {
       const selectedPreset = presets.find(p => p.value === value);
       if (selectedPreset) {
-        const to = new Date(2025, 6, 15); // July 15, 2025 - latest COT data
+        const to = new Date(); // Use current date as latest
         const from = new Date(to);
         from.setDate(to.getDate() - selectedPreset.days);
         setDateRange({ from, to });
@@ -76,7 +76,7 @@ export function DateRangePicker() {
                   mode="single"
                   selected={dateRange.from}
                   onSelect={(date) => date && handleCustomDateChange(date, dateRange.to)}
-                  disabled={(date) => date > new Date(2025, 6, 15) || date < new Date("2008-01-01")}
+                  disabled={(date) => date > new Date() || date < new Date("2008-01-01")}
                 />
               </div>
               <div className="p-3 border-l">
@@ -85,7 +85,7 @@ export function DateRangePicker() {
                   mode="single"
                   selected={dateRange.to}
                   onSelect={(date) => date && handleCustomDateChange(dateRange.from, date)}
-                  disabled={(date) => date > new Date(2025, 6, 15) || date < dateRange.from}
+                  disabled={(date) => date > new Date() || date < dateRange.from}
                 />
               </div>
             </div>
